@@ -1,4 +1,5 @@
 import type { FinanceDataSource } from '@/data/contracts'
+import type { RecurringBillsRepositoryContract } from '@/data/contracts/recurring-bills-contract'
 import type { RecurringTransactionsRepositoryContract } from '@/data/contracts/recurring-transactions-contract'
 import { accountsRepository } from '@/data/repositories/accounts/accounts-repository'
 import { billsRepository } from '@/data/repositories/bills/bills-repository'
@@ -17,6 +18,23 @@ function rejectLegacyRecurringTransactions() {
     new Error('Recurring transactions are available only in cloud runtime.'),
   )
 }
+
+function rejectLegacyRecurringBills() {
+  return Promise.reject(
+    new Error('Recurring bills are available only in cloud runtime.'),
+  )
+}
+
+const indexedDbRecurringBillsRepository = {
+  getAll: rejectLegacyRecurringBills,
+  getById: rejectLegacyRecurringBills,
+  getDue: rejectLegacyRecurringBills,
+  create: rejectLegacyRecurringBills,
+  update: rejectLegacyRecurringBills,
+  archive: rejectLegacyRecurringBills,
+  deleteSoft: rejectLegacyRecurringBills,
+  generateDue: rejectLegacyRecurringBills,
+} satisfies RecurringBillsRepositoryContract
 
 const indexedDbRecurringTransactionsRepository = {
   getAll: rejectLegacyRecurringTransactions,
@@ -46,6 +64,7 @@ export const indexedDbFinanceDataSource = {
   goals: goalsRepository,
   loans: loansRepository,
   budgets: budgetsRepository,
+  recurringBills: indexedDbRecurringBillsRepository,
   recurringTransactions: indexedDbRecurringTransactionsRepository,
 } satisfies FinanceDataSource
 

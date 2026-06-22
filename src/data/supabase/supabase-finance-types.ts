@@ -5,6 +5,7 @@ import type { CategoryType } from '@/data/models/category'
 import type { EntityId } from '@/data/models/common'
 import type { GoalPriority, GoalStatus } from '@/data/models/goal'
 import type { LoanStatus, LoanType } from '@/data/models/loan'
+import type { RecurringBillFrequency } from '@/data/models/recurring-bill'
 import type {
   RecurringTransactionFrequency,
   RecurringTransactionType,
@@ -152,6 +153,22 @@ export type BudgetRow = FinanceRecordRow & {
   notes: Nullable<string>
 }
 
+export type RecurringBillRow = FinanceRecordRow & {
+  name: string
+  amount: number
+  category_id: EntityId
+  frequency: RecurringBillFrequency
+  interval: number
+  start_date: string
+  next_due_date: string
+  end_date: Nullable<string>
+  auto_generate_days_before_due: number
+  is_active: boolean
+  notes: Nullable<string>
+  last_generated_at: Nullable<string>
+  last_generated_for_date: Nullable<string>
+}
+
 export type RecurringTransactionRow = FinanceRecordRow & {
   type: RecurringTransactionType
   name: string
@@ -177,6 +194,7 @@ export type BillInsertRow = BillRow
 export type GoalInsertRow = GoalRow
 export type LoanInsertRow = LoanRow
 export type BudgetInsertRow = BudgetRow
+export type RecurringBillInsertRow = RecurringBillRow
 export type RecurringTransactionInsertRow = RecurringTransactionRow
 
 export type AccountUpdateRow = Partial<
@@ -199,6 +217,12 @@ export type LoanUpdateRow = Partial<
 >
 export type BudgetUpdateRow = Partial<
   Omit<BudgetRow, 'id' | 'household_id' | 'created_by' | 'created_at'>
+>
+export type RecurringBillUpdateRow = Partial<
+  Omit<
+    RecurringBillRow,
+    'id' | 'household_id' | 'created_by' | 'created_at'
+  >
 >
 export type RecurringTransactionUpdateRow = Partial<
   Omit<

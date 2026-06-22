@@ -12,6 +12,10 @@ function isNavItemActive(href: string, pathname: string) {
     return pathname === '/more' || moreRouteHrefs.has(pathname)
   }
 
+  if (href === '/bills') {
+    return pathname === '/bills' || pathname === '/recurring-bills'
+  }
+
   return pathname === href
 }
 

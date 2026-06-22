@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, Plus, Receipt, TriangleAlert } from 'lucide-react'
+import {
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Receipt,
+  TriangleAlert,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { ConfirmationDialog } from '@/components/app/confirmation-dialog'
 import { EmptyState } from '@/components/app/empty-state'
@@ -400,10 +408,18 @@ export function BillsPage() {
       title="Bills"
       description="Plan upcoming bills, then mark them paid to create linked expense transactions."
       action={
-        <Button type="button" onClick={openAddBill} disabled={loading}>
-          <Plus className="size-4" aria-hidden="true" />
-          Add Bill
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/recurring-bills">
+              <CalendarClock className="size-4" aria-hidden="true" />
+              Recurring Bills
+            </Link>
+          </Button>
+          <Button type="button" onClick={openAddBill} disabled={loading}>
+            <Plus className="size-4" aria-hidden="true" />
+            Add Bill
+          </Button>
+        </div>
       }
     >
       <div className="flex flex-col gap-4">

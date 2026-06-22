@@ -9,6 +9,7 @@ export type {
   FinanceDataSource,
   FinanceDataSourceMode,
 } from '@/data/contracts/finance-data-source'
+export type { RecurringBillsRepositoryContract } from '@/data/contracts/recurring-bills-contract'
 export type { RecurringTransactionsRepositoryContract } from '@/data/contracts/recurring-transactions-contract'
 export type {
   GoalMovementResult,

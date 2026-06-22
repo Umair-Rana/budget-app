@@ -21,6 +21,10 @@ function isNavItemActive(href: string, pathname: string) {
     return pathname === '/more' || desktopMoreRouteHrefs.has(pathname)
   }
 
+  if (href === '/bills') {
+    return pathname === '/bills' || pathname === '/recurring-bills'
+  }
+
   return pathname === href
 }
 

@@ -59,6 +59,11 @@ const RecurringTransactionsPage = lazy(() =>
     default: module.RecurringTransactionsPage,
   })),
 )
+const RecurringBillsPage = lazy(() =>
+  import('@/pages/recurring-bills-page').then((module) => ({
+    default: module.RecurringBillsPage,
+  })),
+)
 const SettingsPage = lazy(() =>
   import('@/pages/settings-page').then((module) => ({
     default: module.SettingsPage,
@@ -94,6 +99,10 @@ export function AppRoutes() {
         <Route path="planner" element={withPageSuspense(<PlannerPage />)} />
         <Route path="more" element={withPageSuspense(<MorePage />)} />
         <Route path="bills" element={withPageSuspense(<BillsPage />)} />
+        <Route
+          path="recurring-bills"
+          element={withPageSuspense(<RecurringBillsPage />)}
+        />
         <Route path="goals" element={withPageSuspense(<GoalsPage />)} />
         <Route path="loans" element={withPageSuspense(<LoansPage />)} />
         <Route path="accounts" element={withPageSuspense(<AccountsPage />)} />

@@ -35,8 +35,14 @@ describe('recurring transaction domain logic', () => {
     expect(calculateNextRunDate('2026-01-31', 'monthly', 1)).toBe(
       '2026-02-28',
     )
+    expect(calculateNextRunDate('2026-12-31', 'monthly', 2)).toBe(
+      '2027-02-28',
+    )
     expect(calculateNextRunDate('2024-02-29', 'yearly', 1)).toBe(
       '2025-02-28',
+    )
+    expect(calculateNextRunDate('2024-02-29', 'yearly', 4)).toBe(
+      '2028-02-29',
     )
   })
 

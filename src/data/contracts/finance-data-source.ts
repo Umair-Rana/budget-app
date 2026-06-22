@@ -4,6 +4,7 @@ import type { BudgetsRepositoryContract } from '@/data/contracts/budgets-contrac
 import type { CategoriesRepositoryContract } from '@/data/contracts/categories-contract'
 import type { GoalsRepositoryContract } from '@/data/contracts/goals-contract'
 import type { LoansRepositoryContract } from '@/data/contracts/loans-contract'
+import type { RecurringBillsRepositoryContract } from '@/data/contracts/recurring-bills-contract'
 import type { RecurringTransactionsRepositoryContract } from '@/data/contracts/recurring-transactions-contract'
 import type { TransactionsRepositoryContract } from '@/data/contracts/transactions-contract'
 
@@ -18,5 +19,6 @@ export interface FinanceDataSource {
   goals: GoalsRepositoryContract
   loans: LoansRepositoryContract
   budgets: BudgetsRepositoryContract
+  recurringBills: RecurringBillsRepositoryContract
   recurringTransactions: RecurringTransactionsRepositoryContract
 }

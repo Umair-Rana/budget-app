@@ -14,6 +14,7 @@ export type CloudBackupStores = {
   categories: CloudBackupTableRow<'categories'>[]
   transactions: CloudBackupTableRow<'transactions'>[]
   recurring_transactions: CloudBackupTableRow<'recurring_transactions'>[]
+  recurring_bills: CloudBackupTableRow<'recurring_bills'>[]
   bills: CloudBackupTableRow<'bills'>[]
   goals: CloudBackupTableRow<'goals'>[]
   loans: CloudBackupTableRow<'loans'>[]

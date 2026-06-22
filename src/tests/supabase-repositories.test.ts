@@ -32,6 +32,10 @@ import {
   supabaseLoansRepository,
 } from '@/data/supabase/repositories/supabase-loans-repository'
 import {
+  createSupabaseRecurringBillsRepository,
+  supabaseRecurringBillsRepository,
+} from '@/data/supabase/repositories/supabase-recurring-bills-repository'
+import {
   createSupabaseRecurringTransactionsRepository,
   supabaseRecurringTransactionsRepository,
 } from '@/data/supabase/repositories/supabase-recurring-transactions-repository'
@@ -48,6 +52,7 @@ type BudgetRow = Database['public']['Tables']['budgets']['Row']
 type CategoryRow = Database['public']['Tables']['categories']['Row']
 type GoalRow = Database['public']['Tables']['goals']['Row']
 type LoanRow = Database['public']['Tables']['loans']['Row']
+type RecurringBillRow = Database['public']['Tables']['recurring_bills']['Row']
 type RecurringTransactionRow =
   Database['public']['Tables']['recurring_transactions']['Row']
 type TransactionRow = Database['public']['Tables']['transactions']['Row']
@@ -243,6 +248,30 @@ const recurringTransactionRow: RecurringTransactionRow = {
   deleted_at: null,
 }
 
+const recurringBillRow: RecurringBillRow = {
+  id: 'recurring-bill-1',
+  household_id: 'household-1',
+  name: 'Electricity',
+  amount: 8_000,
+  category_id: 'category-expense',
+  frequency: 'monthly',
+  interval: 1,
+  start_date: '2026-01-01',
+  next_due_date: '2026-01-15',
+  end_date: null,
+  auto_generate_days_before_due: 7,
+  is_active: true,
+  notes: 'Recurring utility bill',
+  last_generated_at: null,
+  last_generated_for_date: null,
+  created_by: 'user-1',
+  updated_by: 'user-1',
+  created_at: '2026-01-01T08:00:00.000Z',
+  updated_at: '2026-01-01T08:00:00.000Z',
+  archived_at: null,
+  deleted_at: null,
+}
+
 function createMockQuery(row: TransactionRow | null = transactionRow) {
   const query = {
     select: vi.fn(() => query),
@@ -391,6 +420,7 @@ function createMockRecurringTransactionQuery(options?: {
 
 function createMockSupabaseRecurringClient(options?: {
   categoryRow?: CategoryRow | null
+  generateDueResult?: unknown
   recurringRow?: RecurringTransactionRow | null
   recurringRows?: RecurringTransactionRow[]
 }) {
@@ -404,9 +434,33 @@ function createMockSupabaseRecurringClient(options?: {
   const from = vi.fn((table: string) =>
     table === 'categories' ? categoryQuery : recurringQuery,
   )
-  const rpc = vi.fn().mockResolvedValue({
-    data: transactionRow,
-    error: null,
+  const rpc = vi.fn().mockImplementation((functionName: string) => {
+    if (functionName === 'generate_due_recurring_transactions') {
+      return Promise.resolve({
+        data:
+          options?.generateDueResult ??
+          {
+            generatedCount: 1,
+            skippedCount: 0,
+            failedCount: 0,
+            generated: [
+              {
+                recurringTransactionId: 'recurring-1',
+                scheduledDate: '2026-01-10',
+                transactionId: 'transaction-1',
+              },
+            ],
+            skipped: [],
+            failed: [],
+          },
+        error: null,
+      })
+    }
+
+    return Promise.resolve({
+      data: transactionRow,
+      error: null,
+    })
   })
 
   return {
@@ -414,6 +468,87 @@ function createMockSupabaseRecurringClient(options?: {
     categoryQuery,
     from,
     recurringQuery,
+    rpc,
+  }
+}
+
+function createMockRecurringBillQuery(options?: {
+  row?: RecurringBillRow | null
+  rows?: RecurringBillRow[]
+}) {
+  const query = {
+    data: options?.rows ?? [recurringBillRow],
+    error: null,
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    is: vi.fn(() => query),
+    order: vi.fn(() => query),
+    insert: vi.fn(() => query),
+    update: vi.fn(() => query),
+    maybeSingle: vi
+      .fn()
+      .mockResolvedValue({
+        data: options?.row ?? recurringBillRow,
+        error: null,
+      }),
+    single: vi
+      .fn()
+      .mockResolvedValue({
+        data: options?.row ?? recurringBillRow,
+        error: null,
+      }),
+  }
+
+  return query
+}
+
+function createMockSupabaseRecurringBillClient(options?: {
+  categoryRow?: CategoryRow | null
+  generateDueResult?: unknown
+  recurringBillRow?: RecurringBillRow | null
+  recurringBillRows?: RecurringBillRow[]
+}) {
+  const recurringBillQuery = createMockRecurringBillQuery({
+    row: options?.recurringBillRow ?? recurringBillRow,
+    rows: options?.recurringBillRows ?? [recurringBillRow],
+  })
+  const categoryQuery = createMockCategoryQuery(
+    options?.categoryRow ?? expenseCategoryRow,
+  )
+  const from = vi.fn((table: string) =>
+    table === 'categories' ? categoryQuery : recurringBillQuery,
+  )
+  const rpc = vi.fn().mockImplementation((functionName: string) => {
+    if (functionName === 'generate_due_recurring_bills') {
+      return Promise.resolve({
+        data:
+          options?.generateDueResult ??
+          {
+            generatedCount: 1,
+            skippedCount: 0,
+            failedCount: 0,
+            generated: [
+              {
+                recurringBillId: 'recurring-bill-1',
+                scheduledDate: '2026-01-15',
+                billId: 'bill-1',
+              },
+            ],
+            skipped: [],
+            failed: [],
+          },
+        error: null,
+      })
+    }
+
+    return Promise.resolve({ data: billRow, error: null })
+  })
+
+  return {
+    client: { from, rpc } as unknown as SupabaseClient<Database>,
+    categoryQuery,
+    from,
+    recurringBillQuery,
     rpc,
   }
 }
@@ -573,6 +708,16 @@ describe('Supabase finance repositories', () => {
     ).toThrow(missingSupabaseFinanceContextMessage)
   })
 
+  it('requires explicit Supabase context for recurring bill repositories', () => {
+    expect(() =>
+      createSupabaseRecurringBillsRepository({
+        client: fakeClient,
+        householdId: 'household-1',
+        userId: null,
+      }),
+    ).toThrow(missingSupabaseFinanceContextMessage)
+  })
+
   it('can create an opt-in Supabase data source without switching the active source', () => {
     const dataSource = createSupabaseFinanceDataSource({
       client: fakeClient,
@@ -591,6 +736,8 @@ describe('Supabase finance repositories', () => {
     expect(dataSource.bills).not.toBe(supabaseBillsRepository)
     expect(dataSource.budgets.getByMonth).toEqual(expect.any(Function))
     expect(dataSource.budgets).not.toBe(supabaseBudgetsRepository)
+    expect(dataSource.recurringBills.generateDue).toEqual(expect.any(Function))
+    expect(dataSource.recurringBills).not.toBe(supabaseRecurringBillsRepository)
     expect(dataSource.recurringTransactions.generateDue).toEqual(
       expect.any(Function),
     )
@@ -614,6 +761,9 @@ describe('Supabase finance repositories', () => {
     )
     expect(supabaseFinanceDataSource.bills).toBe(supabaseBillsRepository)
     expect(supabaseFinanceDataSource.budgets).toBe(supabaseBudgetsRepository)
+    expect(supabaseFinanceDataSource.recurringBills).toBe(
+      supabaseRecurringBillsRepository,
+    )
     expect(supabaseFinanceDataSource.recurringTransactions).toBe(
       supabaseRecurringTransactionsRepository,
     )
@@ -791,8 +941,9 @@ describe('Supabase finance repositories', () => {
     )
   })
 
-  it('generates due recurring transactions through the transaction RPC path', async () => {
-    const { client, recurringQuery, rpc } = createMockSupabaseRecurringClient()
+  it('generates due recurring transactions through the atomic recurring RPC', async () => {
+    const { client, from, recurringQuery, rpc } =
+      createMockSupabaseRecurringClient()
     const repository = createSupabaseRecurringTransactionsRepository({
       client,
       householdId: 'household-1',
@@ -802,33 +953,46 @@ describe('Supabase finance repositories', () => {
     const result = await repository.generateDue('2026-01-10')
 
     expect(result.generatedCount).toBe(1)
+    expect(result.generated).toEqual([
+      {
+        recurringTransactionId: 'recurring-1',
+        scheduledDate: '2026-01-10',
+        transactionId: 'transaction-1',
+      },
+    ])
     expect(result.failedCount).toBe(0)
     expect(rpc).toHaveBeenCalledWith(
+      'generate_due_recurring_transactions',
+      expect.objectContaining({
+        p_household_id: 'household-1',
+        p_as_of_date: '2026-01-10',
+        p_generated_at: expect.any(String),
+      }),
+    )
+    expect(rpc).not.toHaveBeenCalledWith(
       'create_finance_transaction',
-      expect.objectContaining({
-        p_type: 'income',
-        p_amount: 100_000,
-        p_category_id: 'category-income',
-        p_to_account_id: 'account-1',
-        p_date: '2026-01-10',
-      }),
+      expect.anything(),
     )
-    expect(recurringQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        next_run_date: '2026-02-10',
-        last_generated_for_date: '2026-01-10',
-      }),
-    )
+    expect(from).not.toHaveBeenCalled()
+    expect(recurringQuery.update).not.toHaveBeenCalled()
   })
 
-  it('skips duplicate recurring generation for the same scheduled date', async () => {
+  it('maps duplicate skip summaries from the atomic recurring RPC', async () => {
     const { client, recurringQuery, rpc } = createMockSupabaseRecurringClient({
-      recurringRows: [
-        {
-          ...recurringTransactionRow,
-          last_generated_for_date: '2026-01-10',
-        },
-      ],
+      generateDueResult: {
+        generatedCount: 0,
+        skippedCount: 1,
+        failedCount: 0,
+        generated: [],
+        skipped: [
+          {
+            recurringTransactionId: 'recurring-1',
+            scheduledDate: '2026-01-10',
+            reason: 'Already generated for this scheduled date.',
+          },
+        ],
+        failed: [],
+      },
     })
     const repository = createSupabaseRecurringTransactionsRepository({
       client,
@@ -840,8 +1004,168 @@ describe('Supabase finance repositories', () => {
 
     expect(result.generatedCount).toBe(0)
     expect(result.skippedCount).toBe(1)
-    expect(rpc).not.toHaveBeenCalled()
+    expect(result.skipped).toEqual([
+      {
+        recurringTransactionId: 'recurring-1',
+        scheduledDate: '2026-01-10',
+        reason: 'Already generated for this scheduled date.',
+      },
+    ])
+    expect(rpc).toHaveBeenCalledWith(
+      'generate_due_recurring_transactions',
+      expect.objectContaining({
+        p_household_id: 'household-1',
+        p_as_of_date: '2026-01-10',
+      }),
+    )
     expect(recurringQuery.update).not.toHaveBeenCalled()
+  })
+
+  it('queries due Supabase recurring bills by household and lead time', async () => {
+    const { client, from, recurringBillQuery } =
+      createMockSupabaseRecurringBillClient({
+        recurringBillRows: [
+          recurringBillRow,
+          {
+            ...recurringBillRow,
+            id: 'recurring-bill-later',
+            next_due_date: '2026-02-15',
+          },
+        ],
+      })
+    const repository = createSupabaseRecurringBillsRepository({
+      client,
+      householdId: 'household-1',
+      userId: 'user-1',
+    })
+
+    const recurringBills = await repository.getDue('2026-01-10')
+
+    expect(recurringBills).toHaveLength(1)
+    expect(recurringBills[0]).toMatchObject({
+      id: 'recurring-bill-1',
+      name: 'Electricity',
+      nextDueDate: '2026-01-15',
+      autoGenerateDaysBeforeDue: 7,
+    })
+    expect(from).toHaveBeenCalledWith('recurring_bills')
+    expect(recurringBillQuery.eq).toHaveBeenCalledWith(
+      'household_id',
+      'household-1',
+    )
+    expect(recurringBillQuery.eq).toHaveBeenCalledWith('is_active', true)
+  })
+
+  it('creates Supabase recurring bills after expense category validation', async () => {
+    const { client, categoryQuery, recurringBillQuery } =
+      createMockSupabaseRecurringBillClient()
+    const repository = createSupabaseRecurringBillsRepository({
+      client,
+      householdId: 'household-1',
+      userId: 'user-1',
+    })
+
+    await repository.create({
+      name: 'Electricity',
+      amount: 8_000,
+      categoryId: 'category-expense',
+      frequency: 'monthly',
+      interval: 1,
+      startDate: '2026-01-01',
+      nextDueDate: '2026-01-15',
+      autoGenerateDaysBeforeDue: 7,
+    })
+
+    expect(categoryQuery.eq).toHaveBeenCalledWith('id', 'category-expense')
+    expect(recurringBillQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        household_id: 'household-1',
+        name: 'Electricity',
+        amount: 8_000,
+        category_id: 'category-expense',
+        frequency: 'monthly',
+        interval: 1,
+        next_due_date: '2026-01-15',
+        auto_generate_days_before_due: 7,
+      }),
+    )
+  })
+
+  it('generates due recurring bills through the atomic recurring bill RPC', async () => {
+    const { client, from, recurringBillQuery, rpc } =
+      createMockSupabaseRecurringBillClient()
+    const repository = createSupabaseRecurringBillsRepository({
+      client,
+      householdId: 'household-1',
+      userId: 'user-1',
+    })
+
+    const result = await repository.generateDue('2026-01-10')
+
+    expect(result.generatedCount).toBe(1)
+    expect(result.generated).toEqual([
+      {
+        recurringBillId: 'recurring-bill-1',
+        scheduledDate: '2026-01-15',
+        billId: 'bill-1',
+      },
+    ])
+    expect(result.failedCount).toBe(0)
+    expect(rpc).toHaveBeenCalledWith(
+      'generate_due_recurring_bills',
+      expect.objectContaining({
+        p_household_id: 'household-1',
+        p_as_of_date: '2026-01-10',
+        p_generated_at: expect.any(String),
+      }),
+    )
+    expect(from).not.toHaveBeenCalled()
+    expect(recurringBillQuery.update).not.toHaveBeenCalled()
+  })
+
+  it('maps duplicate recurring bill skip summaries from the RPC', async () => {
+    const { client, recurringBillQuery, rpc } =
+      createMockSupabaseRecurringBillClient({
+        generateDueResult: {
+          generatedCount: 0,
+          skippedCount: 1,
+          failedCount: 0,
+          generated: [],
+          skipped: [
+            {
+              recurringBillId: 'recurring-bill-1',
+              scheduledDate: '2026-01-15',
+              reason: 'Already generated for this scheduled date.',
+            },
+          ],
+          failed: [],
+        },
+      })
+    const repository = createSupabaseRecurringBillsRepository({
+      client,
+      householdId: 'household-1',
+      userId: 'user-1',
+    })
+
+    const result = await repository.generateDue('2026-01-10')
+
+    expect(result.generatedCount).toBe(0)
+    expect(result.skippedCount).toBe(1)
+    expect(result.skipped).toEqual([
+      {
+        recurringBillId: 'recurring-bill-1',
+        scheduledDate: '2026-01-15',
+        reason: 'Already generated for this scheduled date.',
+      },
+    ])
+    expect(rpc).toHaveBeenCalledWith(
+      'generate_due_recurring_bills',
+      expect.objectContaining({
+        p_household_id: 'household-1',
+        p_as_of_date: '2026-01-10',
+      }),
+    )
+    expect(recurringBillQuery.update).not.toHaveBeenCalled()
   })
 
   it('queries Supabase budgets by scoped month', async () => {

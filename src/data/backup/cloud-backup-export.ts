@@ -16,6 +16,7 @@ type HouseholdScopedTableName =
   | 'categories'
   | 'transactions'
   | 'recurring_transactions'
+  | 'recurring_bills'
   | 'bills'
   | 'goals'
   | 'loans'
@@ -165,6 +166,7 @@ export async function createCloudBackup({
     categories,
     transactions,
     recurringTransactions,
+    recurringBills,
     bills,
     goals,
     loans,
@@ -196,6 +198,11 @@ export async function createCloudBackup({
       'recurring_transactions',
       backupContext.householdId,
     ),
+    fetchHouseholdRows(
+      backupContext.client,
+      'recurring_bills',
+      backupContext.householdId,
+    ),
     fetchHouseholdRows(backupContext.client, 'bills', backupContext.householdId),
     fetchHouseholdRows(backupContext.client, 'goals', backupContext.householdId),
     fetchHouseholdRows(backupContext.client, 'loans', backupContext.householdId),
@@ -211,6 +218,7 @@ export async function createCloudBackup({
     categories,
     transactions,
     recurring_transactions: recurringTransactions,
+    recurring_bills: recurringBills,
     bills,
     goals,
     loans,

@@ -24,6 +24,10 @@ import {
   supabaseLoansRepository,
 } from '@/data/supabase/repositories/supabase-loans-repository'
 import {
+  createSupabaseRecurringBillsRepository,
+  supabaseRecurringBillsRepository,
+} from '@/data/supabase/repositories/supabase-recurring-bills-repository'
+import {
   createSupabaseRecurringTransactionsRepository,
   supabaseRecurringTransactionsRepository,
 } from '@/data/supabase/repositories/supabase-recurring-transactions-repository'
@@ -42,6 +46,7 @@ export const supabaseFinanceDataSource = {
   goals: supabaseGoalsRepository,
   loans: supabaseLoansRepository,
   budgets: supabaseBudgetsRepository,
+  recurringBills: supabaseRecurringBillsRepository,
   recurringTransactions: supabaseRecurringTransactionsRepository,
 } satisfies FinanceDataSource
 
@@ -57,6 +62,7 @@ export function createSupabaseFinanceDataSource(
     goals: createSupabaseGoalsRepository(input),
     loans: createSupabaseLoansRepository(input),
     budgets: createSupabaseBudgetsRepository(input),
+    recurringBills: createSupabaseRecurringBillsRepository(input),
     recurringTransactions: createSupabaseRecurringTransactionsRepository(input),
   }
 }

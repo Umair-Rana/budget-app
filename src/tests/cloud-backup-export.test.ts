@@ -131,6 +131,15 @@ function createRecords() {
         created_at: '2026-01-02T00:00:00.000Z',
       },
     ],
+    recurring_bills: [
+      {
+        id: 'recurring-bill-1',
+        household_id: 'household-1',
+        name: 'Electricity',
+        amount: 8000,
+        created_at: '2026-01-02T00:00:00.000Z',
+      },
+    ],
     bills: [],
     goals: [],
     loans: [],
@@ -165,6 +174,7 @@ describe('cloud backup export', () => {
     expect(backup.stores.categories).toHaveLength(1)
     expect(backup.stores.transactions).toHaveLength(1)
     expect(backup.stores.recurring_transactions).toHaveLength(1)
+    expect(backup.stores.recurring_bills).toHaveLength(1)
     expect(backup.stores.bills).toEqual([])
     expect(backup.stores.goals).toEqual([])
     expect(backup.stores.loans).toEqual([])
@@ -173,6 +183,7 @@ describe('cloud backup export', () => {
     expect(from).toHaveBeenCalledWith('households')
     expect(from).toHaveBeenCalledWith('household_members')
     expect(from).toHaveBeenCalledWith('recurring_transactions')
+    expect(from).toHaveBeenCalledWith('recurring_bills')
   })
 
   it('generates the cloud backup filename with local date parts', () => {

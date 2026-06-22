@@ -679,6 +679,93 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_bills: {
+        Row: {
+          amount: number
+          archived_at: string | null
+          auto_generate_days_before_due: number
+          category_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          end_date: string | null
+          frequency: string
+          household_id: string
+          id: string
+          interval: number
+          is_active: boolean
+          last_generated_at: string | null
+          last_generated_for_date: string | null
+          name: string
+          next_due_date: string
+          notes: string | null
+          start_date: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          archived_at?: string | null
+          auto_generate_days_before_due?: number
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          end_date?: string | null
+          frequency: string
+          household_id: string
+          id?: string
+          interval?: number
+          is_active?: boolean
+          last_generated_at?: string | null
+          last_generated_for_date?: string | null
+          name: string
+          next_due_date: string
+          notes?: string | null
+          start_date: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          archived_at?: string | null
+          auto_generate_days_before_due?: number
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          end_date?: string | null
+          frequency?: string
+          household_id?: string
+          id?: string
+          interval?: number
+          is_active?: boolean
+          last_generated_at?: string | null
+          last_generated_for_date?: string | null
+          name?: string
+          next_due_date?: string
+          notes?: string | null
+          start_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_transactions: {
         Row: {
           amount: number
@@ -1078,6 +1165,14 @@ export type Database = {
           target_transaction: Database["public"]["Tables"]["transactions"]["Row"]
         }
         Returns: boolean
+      }
+      _recurring_next_run_date: {
+        Args: {
+          p_current_date: string
+          p_frequency: string
+          p_interval: number
+        }
+        Returns: string
       }
       _reverse_finance_bill_payment: {
         Args: {
@@ -1647,6 +1742,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      generate_due_recurring_bills: {
+        Args: {
+          p_as_of_date?: string
+          p_generated_at?: string
+          p_household_id: string
+        }
+        Returns: Json
+      }
+      generate_due_recurring_transactions: {
+        Args: {
+          p_as_of_date?: string
+          p_generated_at?: string
+          p_household_id: string
+        }
+        Returns: Json
+      }
       get_household_members: {
         Args: { p_household_id: string }
         Returns: {
@@ -2166,4 +2277,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
