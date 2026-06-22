@@ -1,13 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { AuthScreen } from '@/components/auth/auth-screen'
 import { LoadingState } from '@/components/app/loading-state'
+import { Button } from '@/components/ui/button'
 import type { FinanceDataSource } from '@/data/contracts'
 import {
-  bootstrapSupabaseHousehold,
   type CloudHousehold,
+  prepareSupabaseHousehold,
 } from '@/data/supabase/household-bootstrap'
+import {
+  acceptHouseholdInvite,
+  type PendingHouseholdInvite,
+} from '@/data/supabase/household-sharing'
+import { createSupabaseFinanceDataSource } from '@/data/supabase/supabase-finance-data-source'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { useAuth } from '@/hooks/use-auth'
 import { FinanceDataSourceContext } from '@/providers/finance-data-source-context'
@@ -35,6 +41,14 @@ type CloudBootstrapState =
       userId: string
     }
   | {
+      status: 'invite'
+      dataSource?: undefined
+      household?: undefined
+      message?: undefined
+      pendingInvites: PendingHouseholdInvite[]
+      userId: string
+    }
+  | {
       status: 'error'
       dataSource?: undefined
       household?: undefined
@@ -57,7 +71,81 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const [cloudState, setCloudState] = useState<CloudBootstrapState>({
     status: 'idle',
   })
+  const [pendingInviteAction, setPendingInviteAction] = useState<
+    'join' | 'skip' | null
+  >(null)
   const signedIn = Boolean(session && user)
+
+  const activateHousehold = useCallback(
+    async (cloudClient: NonNullable<typeof supabase>, cloudUser: typeof user, household: CloudHousehold) => {
+      if (!cloudUser) {
+        throw new Error('A signed-in user is required to load household data.')
+      }
+
+      const dataSource = createSupabaseFinanceDataSource({
+        client: cloudClient,
+        householdId: household.id,
+        userId: cloudUser.id,
+      })
+
+      await dataSource.categories.seedDefaultsIfNeeded()
+
+      setCloudState({
+        status: 'ready',
+        dataSource,
+        household,
+        userId: cloudUser.id,
+      })
+    },
+    [],
+  )
+
+  const initializeCloudFinanceData = useCallback(
+    async ({
+      cloudClient,
+      cloudUser,
+      skipInviteCheck = false,
+    }: {
+      cloudClient: NonNullable<typeof supabase>
+      cloudUser: NonNullable<typeof user>
+      skipInviteCheck?: boolean
+    }) => {
+      await Promise.resolve()
+
+      setCloudState({ status: 'loading', userId: cloudUser.id })
+
+      try {
+        const gateResult = await prepareSupabaseHousehold({
+          client: cloudClient,
+          skipInviteCheck,
+          user: cloudUser,
+        })
+
+        if (gateResult.status === 'pending-invites') {
+          setCloudState({
+            status: 'invite',
+            pendingInvites: gateResult.pendingInvites,
+            userId: cloudUser.id,
+          })
+          return
+        }
+
+        setCloudState({
+          status: 'ready',
+          dataSource: gateResult.result.dataSource,
+          household: gateResult.result.household,
+          userId: cloudUser.id,
+        })
+      } catch (error) {
+        setCloudState({
+          status: 'error',
+          message: bootstrapErrorMessage(error),
+          userId: cloudUser.id,
+        })
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!configured || authLoading || !session || !user || !supabase) {
@@ -66,42 +154,22 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
 
     const cloudClient = supabase
     const cloudUser = user
-    let cancelled = false
+    const bootstrapTimer = window.setTimeout(() => {
+      void initializeCloudFinanceData({
+        cloudClient,
+        cloudUser,
+      })
+    }, 0)
 
-    async function initializeCloudFinanceData() {
-      setCloudState({ status: 'loading', userId: cloudUser.id })
-
-      try {
-        const result = await bootstrapSupabaseHousehold({
-          client: cloudClient,
-          user: cloudUser,
-        })
-
-        if (!cancelled) {
-          setCloudState({
-            status: 'ready',
-            dataSource: result.dataSource,
-            household: result.household,
-            userId: cloudUser.id,
-          })
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setCloudState({
-            status: 'error',
-            message: bootstrapErrorMessage(error),
-            userId: cloudUser.id,
-          })
-        }
-      }
-    }
-
-    void initializeCloudFinanceData()
-
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, configured, session, supabase, user])
+    return () => window.clearTimeout(bootstrapTimer)
+  }, [
+    authLoading,
+    configured,
+    initializeCloudFinanceData,
+    session,
+    supabase,
+    user,
+  ])
 
   const stateBelongsToCurrentUser = signedIn && cloudState.userId === user?.id
   const cloudReady = cloudState.status === 'ready' && stateBelongsToCurrentUser
@@ -120,6 +188,10 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     cloudState.status === 'error' && stateBelongsToCurrentUser
       ? cloudState.message
       : null
+  const pendingInvites =
+    cloudState.status === 'invite' && stateBelongsToCurrentUser
+      ? cloudState.pendingInvites
+      : []
 
   useEffect(() => {
     if (!cloudReady) {
@@ -133,6 +205,47 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     return <AuthScreen />
   }
 
+  async function joinInvite(invite: PendingHouseholdInvite) {
+    if (!supabase || !user) {
+      return
+    }
+
+    setPendingInviteAction('join')
+
+    try {
+      const household = await acceptHouseholdInvite(supabase, invite.id)
+
+      await activateHousehold(supabase, user, household)
+      void queryClient.invalidateQueries()
+    } catch (error) {
+      setCloudState({
+        status: 'error',
+        message: bootstrapErrorMessage(error),
+        userId: user.id,
+      })
+    } finally {
+      setPendingInviteAction(null)
+    }
+  }
+
+  async function skipInviteForNow() {
+    if (!supabase || !user) {
+      return
+    }
+
+    setPendingInviteAction('skip')
+
+    try {
+      await initializeCloudFinanceData({
+        cloudClient: supabase,
+        cloudUser: user,
+        skipInviteCheck: true,
+      })
+    } finally {
+      setPendingInviteAction(null)
+    }
+  }
+
   if (isCloudLoading) {
     return (
       <div className="min-h-svh bg-background p-4 text-foreground sm:p-8">
@@ -141,6 +254,57 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
             className="w-full"
             message="Preparing cloud household data..."
           />
+        </div>
+      </div>
+    )
+  }
+
+  if (pendingInvites.length > 0) {
+    const invite = pendingInvites[0]
+    const additionalInviteCount = pendingInvites.length - 1
+    const busy = pendingInviteAction !== null
+
+    return (
+      <div className="min-h-svh bg-background p-4 text-foreground sm:p-8">
+        <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-xl flex-col items-center justify-center gap-4 sm:min-h-[calc(100svh-4rem)]">
+          <div className="w-full rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+            <p className="text-lg font-semibold">Join household?</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              You have been invited to join{' '}
+              <span className="font-medium text-foreground">
+                {invite.householdName}
+              </span>
+              . Joining lets you share the same accounts, transactions, bills,
+              goals, loans, budgets, reports, recurring transactions, and
+              notifications.
+            </p>
+            {additionalInviteCount > 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {additionalInviteCount} additional invite
+                {additionalInviteCount === 1 ? '' : 's'} can be handled after
+                this one.
+              </p>
+            ) : null}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={skipInviteForNow}
+              >
+                {pendingInviteAction === 'skip' ? 'Loading...' : 'Not Now'}
+              </Button>
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => void joinInvite(invite)}
+              >
+                {pendingInviteAction === 'join'
+                  ? 'Joining...'
+                  : 'Join Household'}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     )

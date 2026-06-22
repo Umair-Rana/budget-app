@@ -436,6 +436,56 @@ export type Database = {
           },
         ]
       }
+      household_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          deleted_at: string | null
+          expires_at: string | null
+          household_id: string
+          id: string
+          invited_by: string | null
+          invited_email: string
+          role: string
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          household_id: string
+          id?: string
+          invited_by?: string | null
+          invited_email: string
+          role?: string
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          household_id?: string
+          id?: string
+          invited_by?: string | null
+          invited_email?: string
+          role?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_invites_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           created_at: string
@@ -1050,6 +1100,26 @@ export type Database = {
         }
         Returns: number
       }
+      accept_household_invite: {
+        Args: { p_invite_id: string }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          deleted_at: string | null
+          id: string
+          locale: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "households"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       archive_finance_bill: {
         Args: {
           p_bill_id: string
@@ -1406,6 +1476,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_household_invite: {
+        Args: {
+          p_household_id: string
+          p_invited_email: string
+          p_role?: string
+        }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          deleted_at: string | null
+          expires_at: string | null
+          household_id: string
+          id: string
+          invited_by: string | null
+          invited_email: string
+          role: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "household_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_finance_bill_soft: {
         Args: {
           p_bill_id: string
@@ -1551,6 +1647,43 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_household_members: {
+        Args: { p_household_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          household_id: string
+          id: string
+          role: string
+          user_id: string
+        }[]
+      }
+      get_household_pending_invites: {
+        Args: { p_household_id: string }
+        Returns: {
+          created_at: string
+          expires_at: string
+          household_id: string
+          id: string
+          invited_by: string
+          invited_email: string
+          role: string
+          status: string
+        }[]
+      }
+      get_my_household_invites: {
+        Args: never
+        Returns: {
+          created_at: string
+          expires_at: string
+          household_id: string
+          household_name: string
+          id: string
+          invited_email: string
+          role: string
+          status: string
+        }[]
+      }
       goal_contribute: {
         Args: {
           p_amount: number
@@ -1672,6 +1805,28 @@ export type Database = {
           p_updated_at?: string
         }
         Returns: Json
+      }
+      revoke_household_invite: {
+        Args: { p_invite_id: string }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          deleted_at: string | null
+          expires_at: string | null
+          household_id: string
+          id: string
+          invited_by: string | null
+          invited_email: string
+          role: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "household_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_finance_bill: {
         Args: {

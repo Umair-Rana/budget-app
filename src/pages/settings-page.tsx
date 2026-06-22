@@ -8,6 +8,7 @@ import { BackupRestoreSection } from '@/components/backup/backup-restore-section
 import { CategoryFormDialog } from '@/components/categories/category-form-dialog'
 import { CategoryManagementSection } from '@/components/categories/category-management-section'
 import { CloudAccountSection } from '@/components/settings/cloud-account-section'
+import { HouseholdMembersSection } from '@/components/settings/household-members-section'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -324,6 +325,8 @@ export function SettingsPage() {
         </Card>
 
         <CloudAccountSection />
+
+        <HouseholdMembersSection />
 
         <BackupRestoreSection
           householdName={cloudHousehold?.name}

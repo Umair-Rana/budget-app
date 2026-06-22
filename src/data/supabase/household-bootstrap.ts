@@ -2,6 +2,10 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 import type { FinanceDataSource } from '@/data/contracts'
 import { createSupabaseFinanceDataSource } from '@/data/supabase/supabase-finance-data-source'
+import {
+  getMyHouseholdInvites,
+  type PendingHouseholdInvite,
+} from '@/data/supabase/household-sharing'
 import type { Database } from '@/lib/supabase/database.types'
 
 export type CloudHousehold = Pick<
@@ -14,9 +18,20 @@ export type HouseholdBootstrapResult = {
   household: CloudHousehold
 }
 
+export type HouseholdBootstrapGateResult =
+  | {
+      status: 'ready'
+      result: HouseholdBootstrapResult
+    }
+  | {
+      status: 'pending-invites'
+      pendingInvites: PendingHouseholdInvite[]
+    }
+
 type HouseholdBootstrapInput = {
   client: SupabaseClient<Database>
   createDataSource?: typeof createSupabaseFinanceDataSource
+  skipInviteCheck?: boolean
   user: User
 }
 
@@ -88,5 +103,25 @@ export async function bootstrapSupabaseHousehold({
   return {
     dataSource,
     household,
+  }
+}
+
+export async function prepareSupabaseHousehold(
+  input: HouseholdBootstrapInput,
+): Promise<HouseholdBootstrapGateResult> {
+  if (!input.skipInviteCheck) {
+    const pendingInvites = await getMyHouseholdInvites(input.client)
+
+    if (pendingInvites.length > 0) {
+      return {
+        status: 'pending-invites',
+        pendingInvites,
+      }
+    }
+  }
+
+  return {
+    status: 'ready',
+    result: await bootstrapSupabaseHousehold(input),
   }
 }
