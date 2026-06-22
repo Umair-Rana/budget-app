@@ -9,9 +9,11 @@ import {
 import {
   acceptHouseholdInvite,
   assertCanInviteEmail,
+  canRemoveHouseholdMember,
   createHouseholdInvite,
   getHouseholdSharingOverview,
   normalizeInviteEmail,
+  removeHouseholdMember,
   revokeHouseholdInvite,
 } from '@/data/supabase/household-sharing'
 import type { Database } from '@/lib/supabase/database.types'
@@ -32,6 +34,15 @@ const inviteRow = {
   invited_email: 'member@example.com',
   role: 'member',
   status: 'pending',
+}
+
+const memberRow = {
+  created_at: '2026-01-01T00:00:00.000Z',
+  email: 'member@example.com',
+  household_id: 'household-1',
+  id: 'member-row-1',
+  role: 'member',
+  user_id: 'member-1',
 }
 
 function createFinanceDataSourceStub(seedDefaultsIfNeeded = vi.fn()) {
@@ -182,6 +193,121 @@ describe('household sharing', () => {
     expect(rpc).toHaveBeenCalledWith('revoke_household_invite', {
       p_invite_id: 'invite-1',
     })
+  })
+
+  it('removes a household member with household and user parameters', async () => {
+    const { client, rpc } = createMockClient((functionName) => {
+      if (functionName === 'remove_household_member') {
+        return {
+          ...memberRow,
+          email: undefined,
+        }
+      }
+
+      return null
+    })
+
+    const member = await removeHouseholdMember({
+      client,
+      householdId: 'household-1',
+      memberUserId: 'member-1',
+    })
+
+    expect(member.userId).toBe('member-1')
+    expect(rpc).toHaveBeenCalledWith('remove_household_member', {
+      p_household_id: 'household-1',
+      p_member_user_id: 'member-1',
+    })
+  })
+
+  it('surfaces member removal rejection for non-owners', async () => {
+    const { client } = createErrorClient(
+      'Only household owners can remove members.',
+    )
+
+    await expect(
+      removeHouseholdMember({
+        client,
+        householdId: 'household-1',
+        memberUserId: 'member-1',
+      }),
+    ).rejects.toThrow('Only household owners can remove members.')
+  })
+
+  it('surfaces self removal rejection', async () => {
+    const { client } = createErrorClient(
+      'You cannot remove yourself from the household.',
+    )
+
+    await expect(
+      removeHouseholdMember({
+        client,
+        householdId: 'household-1',
+        memberUserId: 'owner-1',
+      }),
+    ).rejects.toThrow('You cannot remove yourself from the household.')
+  })
+
+  it('surfaces last owner removal rejection', async () => {
+    const { client } = createErrorClient(
+      'You cannot remove the last household owner.',
+    )
+
+    await expect(
+      removeHouseholdMember({
+        client,
+        householdId: 'household-1',
+        memberUserId: 'owner-2',
+      }),
+    ).rejects.toThrow('You cannot remove the last household owner.')
+  })
+
+  it('hides remove action when current user is not owner', () => {
+    expect(
+      canRemoveHouseholdMember({
+        currentRole: 'member',
+        currentUserId: 'member-2',
+        member: {
+          createdAt: memberRow.created_at,
+          email: memberRow.email,
+          householdId: memberRow.household_id,
+          id: memberRow.id,
+          role: 'member',
+          userId: memberRow.user_id,
+        },
+      }),
+    ).toBe(false)
+  })
+
+  it('allows owners to remove non-owner members only', () => {
+    expect(
+      canRemoveHouseholdMember({
+        currentRole: 'owner',
+        currentUserId: 'owner-1',
+        member: {
+          createdAt: memberRow.created_at,
+          email: memberRow.email,
+          householdId: memberRow.household_id,
+          id: memberRow.id,
+          role: 'member',
+          userId: memberRow.user_id,
+        },
+      }),
+    ).toBe(true)
+
+    expect(
+      canRemoveHouseholdMember({
+        currentRole: 'owner',
+        currentUserId: 'owner-1',
+        member: {
+          createdAt: memberRow.created_at,
+          householdId: memberRow.household_id,
+          id: 'owner-row-1',
+          role: 'owner',
+          userId: 'owner-2',
+        },
+      }),
+    ).toBe(false)
   })
 
   it('loads household members and pending invites', async () => {

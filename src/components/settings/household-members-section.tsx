@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MailPlus, Users, X } from 'lucide-react'
+import { MailPlus, UserMinus, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { ConfirmationDialog } from '@/components/app/confirmation-dialog'
 import { FormField, inputControlClassName } from '@/components/app/form-field'
 import { SectionCard } from '@/components/app/section-card'
 import { StatusBadge } from '@/components/app/status-badge'
 import { Button } from '@/components/ui/button'
 import {
+  canRemoveHouseholdMember,
   createHouseholdInvite,
   getHouseholdSharingOverview,
+  removeHouseholdMember,
   revokeHouseholdInvite,
   type HouseholdMember,
   type HouseholdOutgoingInvite,
@@ -64,6 +67,9 @@ export function HouseholdMembersSection() {
   const { cloudHousehold, dataSourceKey } = useFinanceDataSource()
   const { showToast } = useToast()
   const [inviteEmail, setInviteEmail] = useState('')
+  const [memberToRemove, setMemberToRemove] = useState<HouseholdMember | null>(
+    null,
+  )
   const client = getSupabaseClient()
   const householdId = cloudHousehold?.id
 
@@ -148,132 +154,207 @@ export function HouseholdMembersSection() {
       })
     },
   })
+  const removeMemberMutation = useMutation({
+    mutationFn: async (member: HouseholdMember) => {
+      if (!client || !householdId) {
+        throw new Error('Cloud household is not ready.')
+      }
+
+      await removeHouseholdMember({
+        client,
+        householdId,
+        memberUserId: member.userId,
+      })
+
+      return member
+    },
+    onSuccess: async (member) => {
+      setMemberToRemove(null)
+      await queryClient.invalidateQueries({
+        queryKey: householdSharingQueryKey,
+      })
+      showToast({
+        title: 'Member removed',
+        description: `${memberLabel(member)} no longer has access to this household.`,
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      showToast({
+        title: 'Could not remove member',
+        description: getErrorMessage(error),
+        variant: 'error',
+      })
+    },
+  })
   const isInviting = createInviteMutation.isPending
   const isRevoking = revokeInviteMutation.isPending
+  const isRemoving = removeMemberMutation.isPending
 
   function submitInvite() {
     createInviteMutation.mutate(inviteEmail)
   }
 
+  function confirmRemoveMember() {
+    if (!memberToRemove) {
+      return
+    }
+
+    removeMemberMutation.mutate(memberToRemove)
+  }
+
   return (
-    <SectionCard
-      icon={Users}
-      title="Household Members"
-      description="Invite a registered user by email so they can share this cloud household."
-      action={<StatusBadge tone={roleTone(currentRole)}>{currentRole}</StatusBadge>}
-    >
-      <div className="flex flex-col gap-5">
-        <div className="rounded-md border bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">
-            {cloudHousehold?.name ?? 'Cloud household'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your role: <span className="font-medium">{currentRole}</span>
-          </p>
-        </div>
-
-        {sharingQuery.error ? (
-          <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
-            {getErrorMessage(sharingQuery.error)}
-          </div>
-        ) : null}
-
-        <div className="grid gap-3">
-          <p className="text-sm font-medium text-foreground">Members</p>
-          {sharingQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading members...</p>
-          ) : null}
-          {!sharingQuery.isLoading && members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No household members could be loaded.
+    <>
+      <SectionCard
+        icon={Users}
+        title="Household Members"
+        description="Invite a registered user by email so they can share this cloud household."
+        action={<StatusBadge tone={roleTone(currentRole)}>{currentRole}</StatusBadge>}
+      >
+        <div className="flex flex-col gap-5">
+          <div className="rounded-md border bg-muted/30 p-4">
+            <p className="text-sm font-medium text-foreground">
+              {cloudHousehold?.name ?? 'Cloud household'}
             </p>
-          ) : null}
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {memberLabel(member)}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  User id: {member.userId}
-                </p>
-              </div>
-              <StatusBadge tone={roleTone(member.role)}>{member.role}</StatusBadge>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-3">
-          <p className="text-sm font-medium text-foreground">Pending Invites</p>
-          {pendingInvites.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No pending invites.
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your role: <span className="font-medium">{currentRole}</span>
             </p>
-          ) : null}
-          {pendingInvites.map((invite) => (
-            <div
-              key={invite.id}
-              className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {invite.invitedEmail}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Invited as {invite.role}
-                </p>
-              </div>
-              {isOwner ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={isRevoking}
-                  aria-label={`Revoke invite for ${invite.invitedEmail}`}
-                  title={`Revoke invite for ${invite.invitedEmail}`}
-                  onClick={() => revokeInviteMutation.mutate(invite)}
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </Button>
-              ) : (
-                <StatusBadge>Pending</StatusBadge>
-              )}
-            </div>
-          ))}
-        </div>
+          </div>
 
-        {isOwner ? (
-          <div className="grid gap-3 rounded-lg border bg-background p-4">
-            <FormField label="Invite email">
-              <input
-                className={inputControlClassName}
-                type="email"
-                value={inviteEmail}
-                placeholder="person@example.com"
-                disabled={isInviting}
-                onChange={(event) => setInviteEmail(event.target.value)}
-              />
-            </FormField>
-            <Button
-              type="button"
-              className="justify-self-start"
-              disabled={isInviting || !inviteEmail.trim()}
-              onClick={submitInvite}
-            >
-              <MailPlus className="size-4" aria-hidden="true" />
-              {isInviting ? 'Inviting...' : 'Invite Member'}
-            </Button>
+          {sharingQuery.error ? (
+            <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
+              {getErrorMessage(sharingQuery.error)}
+            </div>
+          ) : null}
+
+          <div className="grid gap-3">
+            <p className="text-sm font-medium text-foreground">Members</p>
+            {sharingQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading members...</p>
+            ) : null}
+            {!sharingQuery.isLoading && members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No household members could be loaded.
+              </p>
+            ) : null}
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {memberLabel(member)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    User id: {member.userId}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusBadge tone={roleTone(member.role)}>
+                    {member.role}
+                  </StatusBadge>
+                  {canRemoveHouseholdMember({
+                    currentRole,
+                    currentUserId: user?.id,
+                    member,
+                  }) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isRemoving}
+                      onClick={() => setMemberToRemove(member)}
+                    >
+                      <UserMinus className="size-4" aria-hidden="true" />
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="rounded-md border border-info/25 bg-info/5 p-3 text-sm text-muted-foreground">
-            Members can view this household, but only owners can invite or
-            revoke members.
+
+          <div className="grid gap-3">
+            <p className="text-sm font-medium text-foreground">Pending Invites</p>
+            {pendingInvites.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No pending invites.
+              </p>
+            ) : null}
+            {pendingInvites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {invite.invitedEmail}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Invited as {invite.role}
+                  </p>
+                </div>
+                {isOwner ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isRevoking}
+                    aria-label={`Revoke invite for ${invite.invitedEmail}`}
+                    title={`Revoke invite for ${invite.invitedEmail}`}
+                    onClick={() => revokeInviteMutation.mutate(invite)}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </Button>
+                ) : (
+                  <StatusBadge>Pending</StatusBadge>
+                )}
+              </div>
+            ))}
           </div>
-        )}
-      </div>
-    </SectionCard>
+
+          {isOwner ? (
+            <div className="grid gap-3 rounded-lg border bg-background p-4">
+              <FormField label="Invite email">
+                <input
+                  className={inputControlClassName}
+                  type="email"
+                  value={inviteEmail}
+                  placeholder="person@example.com"
+                  disabled={isInviting}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                />
+              </FormField>
+              <Button
+                type="button"
+                className="justify-self-start"
+                disabled={isInviting || !inviteEmail.trim()}
+                onClick={submitInvite}
+              >
+                <MailPlus className="size-4" aria-hidden="true" />
+                {isInviting ? 'Inviting...' : 'Invite Member'}
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border border-info/25 bg-info/5 p-3 text-sm text-muted-foreground">
+              Members can view this household, but only owners can invite,
+              revoke, or remove members.
+            </div>
+          )}
+        </div>
+      </SectionCard>
+
+      <ConfirmationDialog
+        open={Boolean(memberToRemove)}
+        title="Remove member?"
+        description="This user will lose access to this household's accounts, transactions, bills, goals, loans, budgets, and reports."
+        confirmLabel="Remove Member"
+        destructive
+        isSubmitting={isRemoving}
+        onCancel={() => setMemberToRemove(null)}
+        onConfirm={confirmRemoveMember}
+      />
+    </>
   )
 }

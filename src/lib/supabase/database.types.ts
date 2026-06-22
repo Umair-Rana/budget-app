@@ -1710,6 +1710,10 @@ export type Database = {
         }
         Returns: Json
       }
+      household_owner_count: {
+        Args: { target_household_id: string }
+        Returns: number
+      }
       household_role: { Args: { target_household_id: string }; Returns: string }
       is_household_member: {
         Args: { target_household_id: string }
@@ -1805,6 +1809,23 @@ export type Database = {
           p_updated_at?: string
         }
         Returns: Json
+      }
+      remove_household_member: {
+        Args: { p_household_id: string; p_member_user_id: string }
+        Returns: {
+          created_at: string
+          household_id: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "household_members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       revoke_household_invite: {
         Args: { p_invite_id: string }

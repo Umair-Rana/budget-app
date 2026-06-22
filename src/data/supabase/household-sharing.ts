@@ -73,7 +73,7 @@ type HouseholdMemberRow = {
   id: string
   household_id: string
   user_id: string
-  email: string | null
+  email?: string | null
   role: HouseholdMemberRole
   created_at: string
 }
@@ -137,6 +137,22 @@ export function assertCanInviteEmail(invitedEmail: string, currentEmail?: string
   }
 
   return normalizedEmail
+}
+
+export function canRemoveHouseholdMember({
+  currentRole,
+  currentUserId,
+  member,
+}: {
+  currentRole: HouseholdMemberRole
+  currentUserId?: string
+  member: HouseholdMember
+}) {
+  return (
+    currentRole === 'owner' &&
+    member.role !== 'owner' &&
+    member.userId !== currentUserId
+  )
 }
 
 function mapPendingInvite(row: PendingInviteRow): PendingHouseholdInvite {
@@ -286,6 +302,34 @@ export async function revokeHouseholdInvite(
   }
 
   return mapOutgoingInvite(data)
+}
+
+export async function removeHouseholdMember({
+  client,
+  householdId,
+  memberUserId,
+}: {
+  client: SupabaseClient<Database>
+  householdId: string
+  memberUserId: string
+}) {
+  const { data, error } = await rpcClient(client).rpc<HouseholdMemberRow>(
+    'remove_household_member',
+    {
+      p_household_id: householdId,
+      p_member_user_id: memberUserId,
+    },
+  )
+
+  if (error) {
+    throwSharingError('Removing household member', error)
+  }
+
+  if (!data) {
+    throw new Error('Removing household member did not return a member.')
+  }
+
+  return mapHouseholdMember(data)
 }
 
 export async function getHouseholdSharingOverview({
