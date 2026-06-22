@@ -9,18 +9,16 @@ import type { Session, User } from '@supabase/supabase-js'
 
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { getSupabaseConfigStatus } from '@/lib/supabase/supabase-config'
+import {
+  createSignUpResult,
+  getAuthErrorMessage,
+  getSupabaseEmailRedirectTo,
+  type AuthSignUpResult,
+} from '@/lib/auth/auth-utils'
 import { AuthContext, type AuthContextValue } from '@/providers/auth-context'
 
 const unavailableMessage =
   'Cloud sync is not configured yet. Add Supabase environment variables to enable login.'
-
-function getAuthErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-
-  return 'Authentication failed.'
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configStatus = useMemo(() => getSupabaseConfigStatus(), [])
@@ -89,36 +87,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string): Promise<AuthSignUpResult> => {
       if (!supabase) {
         setError(unavailableMessage)
 
-        return false
+        return {
+          ok: false,
+          message: unavailableMessage,
+        }
       }
 
       setLoading(true)
       setError(null)
 
       try {
+        const emailRedirectTo = getSupabaseEmailRedirectTo()
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: emailRedirectTo ? { emailRedirectTo } : undefined,
         })
 
         if (signUpError) {
           setError(signUpError.message)
 
-          return false
+          return {
+            ok: false,
+            message: signUpError.message,
+          }
         }
 
         setSession(data.session)
         setUser(data.session?.user ?? null)
 
-        return true
+        return createSignUpResult({
+          session: data.session,
+          user: data.user,
+        })
       } catch (nextError) {
-        setError(getAuthErrorMessage(nextError))
+        const message = getAuthErrorMessage(nextError)
 
-        return false
+        setError(message)
+
+        return {
+          ok: false,
+          message,
+        }
       } finally {
         setLoading(false)
       }

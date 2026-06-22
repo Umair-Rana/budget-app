@@ -10,8 +10,17 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { FormField, inputControlClassName } from '@/components/app/form-field'
+import {
+  emailConfirmationRequiredMessage,
+  validateAuthCredentials,
+} from '@/lib/auth/auth-utils'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/providers/toast-context'
+
+type AuthStatusMessage = {
+  message: string
+  tone: 'success' | 'error'
+}
 
 export function AuthScreen() {
   const {
@@ -29,32 +38,84 @@ export function AuthScreen() {
   const [pendingAction, setPendingAction] = useState<
     'sign-in' | 'sign-up' | null
   >(null)
+  const [statusMessage, setStatusMessage] =
+    useState<AuthStatusMessage | null>(null)
 
   const signedIn = Boolean(user)
   const isBusy = loading || pendingAction !== null
 
   async function runAuthAction(action: 'sign-in' | 'sign-up') {
-    setPendingAction(action)
-    clearAuthError()
-
-    const ok =
-      action === 'sign-in'
-        ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password)
-
-    if (ok) {
-      setPassword('')
-      showToast({
-        title: action === 'sign-in' ? 'Signed in' : 'Account request sent',
-        description:
-          action === 'sign-in'
-            ? 'Supabase session is active. Your cloud household will be prepared shortly.'
-            : 'If email confirmation is enabled, check your inbox before signing in.',
-        variant: 'success',
-      })
+    if (isBusy) {
+      return
     }
 
-    setPendingAction(null)
+    const validationMessage = validateAuthCredentials(email, password)
+
+    if (validationMessage) {
+      setStatusMessage({
+        message: validationMessage,
+        tone: 'error',
+      })
+      showToast({
+        title: 'Check your details',
+        description: validationMessage,
+        variant: 'error',
+      })
+      return
+    }
+
+    setPendingAction(action)
+    clearAuthError()
+    setStatusMessage(null)
+
+    try {
+      if (action === 'sign-in') {
+        const ok = await signIn(email.trim(), password)
+
+        if (ok) {
+          setPassword('')
+          showToast({
+            title: 'Signed in',
+            description:
+              'Supabase session is active. Your cloud household will be prepared shortly.',
+            variant: 'success',
+          })
+        }
+
+        return
+      }
+
+      const result = await signUp(email.trim(), password)
+
+      if (result.ok) {
+        setPassword('')
+        setStatusMessage({
+          message: result.confirmationRequired
+            ? emailConfirmationRequiredMessage
+            : result.message,
+          tone: 'success',
+        })
+        showToast({
+          title: 'Account created',
+          description: result.confirmationRequired
+            ? emailConfirmationRequiredMessage
+            : result.message,
+          variant: 'success',
+        })
+      } else {
+        setStatusMessage({
+          message: result.message,
+          tone: 'error',
+        })
+        showToast({
+          title: 'Could not create account',
+          description: result.message,
+          variant: 'error',
+        })
+      }
+    } finally {
+      setPendingAction(null)
+    }
   }
 
   if (!configured) {
@@ -142,6 +203,18 @@ export function AuthScreen() {
               </div>
             ) : null}
 
+            {statusMessage ? (
+              <div
+                className={
+                  statusMessage.tone === 'success'
+                    ? 'rounded-md border border-success/25 bg-success/5 p-3 text-sm text-success'
+                    : 'rounded-md border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive'
+                }
+              >
+                {statusMessage.message}
+              </div>
+            ) : null}
+
             <form
               className="grid gap-4"
               onSubmit={(event: FormEvent<HTMLFormElement>) => {
@@ -155,7 +228,10 @@ export function AuthScreen() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value)
+                    setStatusMessage(null)
+                  }}
                   disabled={isBusy}
                   required
                 />
@@ -167,7 +243,10 @@ export function AuthScreen() {
                   type="password"
                   autoComplete="current-password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setStatusMessage(null)
+                  }}
                   disabled={isBusy}
                   minLength={6}
                   required
