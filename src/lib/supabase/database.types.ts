@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -1742,22 +1742,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      generate_due_recurring_bills: {
-        Args: {
-          p_as_of_date?: string
-          p_generated_at?: string
-          p_household_id: string
-        }
-        Returns: Json
-      }
-      generate_due_recurring_transactions: {
-        Args: {
-          p_as_of_date?: string
-          p_generated_at?: string
-          p_household_id: string
-        }
-        Returns: Json
-      }
       delete_household_and_create_replacement_household: {
         Args: { p_household_id: string }
         Returns: {
@@ -1777,6 +1761,22 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      generate_due_recurring_bills: {
+        Args: {
+          p_as_of_date?: string
+          p_generated_at?: string
+          p_household_id: string
+        }
+        Returns: Json
+      }
+      generate_due_recurring_transactions: {
+        Args: {
+          p_as_of_date?: string
+          p_generated_at?: string
+          p_household_id: string
+        }
+        Returns: Json
       }
       get_household_members: {
         Args: { p_household_id: string }

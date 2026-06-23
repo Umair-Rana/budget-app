@@ -25,6 +25,22 @@ async function invalidateFinanceQueryKeys(
   )
 }
 
+export async function invalidateFinanceData(queryClient: QueryClient) {
+  await invalidateFinanceQueryKeys(queryClient, [
+    financeQueryKeys.accounts,
+    financeQueryKeys.bills,
+    financeQueryKeys.dashboard,
+    financeQueryKeys.goals,
+    financeQueryKeys.loans,
+    financeQueryKeys.notifications,
+    financeQueryKeys.planner,
+    financeQueryKeys.recurringBills,
+    financeQueryKeys.recurringTransactions,
+    financeQueryKeys.reports,
+    financeQueryKeys.transactions,
+  ])
+}
+
 export async function invalidateAccountMutationData(queryClient: QueryClient) {
   await invalidateFinanceQueryKeys(queryClient, [
     financeQueryKeys.accounts,

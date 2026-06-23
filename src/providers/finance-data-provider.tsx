@@ -18,6 +18,7 @@ import {
 import { createFinanceDataSource } from '@/data/data-source/finance-data-source-factory'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { useAuth } from '@/hooks/use-auth'
+import { useFinanceRealtimeInvalidation } from '@/hooks/use-finance-realtime-invalidation'
 import { FinanceDataSourceContext } from '@/providers/finance-data-source-context'
 
 type CloudBootstrapState =
@@ -280,6 +281,14 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     cloudState.status === 'invite' && stateBelongsToCurrentUser
       ? cloudState.pendingInvites
       : []
+
+  useFinanceRealtimeInvalidation({
+    client: supabase,
+    enabled: cloudReady,
+    householdId: cloudHousehold?.id,
+    queryClient,
+    userId: user?.id,
+  })
 
   useEffect(() => {
     if (!cloudReady) {
