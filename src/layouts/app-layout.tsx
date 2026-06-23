@@ -5,8 +5,17 @@ import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { MobileBottomNav } from '@/components/app/mobile-bottom-nav'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 import { NotificationBell } from '@/components/notifications/notification-bell'
+import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
+import {
+  getHouseholdDisplayName,
+  getHouseholdHeaderDetails,
+} from '@/lib/household-display'
 
 export function AppLayout() {
+  const { cloudHousehold } = useFinanceDataSource()
+  const householdName = getHouseholdDisplayName(cloudHousehold)
+  const householdDetails = getHouseholdHeaderDetails(cloudHousehold)
+
   return (
     <div className="min-h-svh bg-background text-foreground lg:h-svh lg:overflow-hidden">
       <div className="flex min-h-svh lg:h-svh lg:min-h-0">
@@ -19,7 +28,7 @@ export function AppLayout() {
                 <BrandMark />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
-                    Household Finance
+                    {householdName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     Budget workspace
@@ -28,10 +37,10 @@ export function AppLayout() {
               </div>
               <div className="hidden min-w-0 lg:block">
                 <p className="text-sm font-medium text-foreground">
-                  Household Finance
+                  {householdName}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Pakistan locale | PKR | DD/MM/YYYY
+                  {householdDetails}
                 </p>
               </div>
               <div className="flex items-center gap-1">

@@ -10,6 +10,11 @@ import {
   primaryNavItems,
   settingsNavItem,
 } from '@/lib/navigation'
+import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
+import {
+  getHouseholdDisplayName,
+  getHouseholdWorkspaceSubtitle,
+} from '@/lib/household-display'
 import { cn } from '@/lib/utils'
 
 function isNavItemActive(href: string, pathname: string) {
@@ -29,7 +34,10 @@ function isNavItemActive(href: string, pathname: string) {
 }
 
 export function DesktopSidebar() {
+  const { cloudHousehold } = useFinanceDataSource()
   const { pathname } = useLocation()
+  const householdName = getHouseholdDisplayName(cloudHousehold)
+  const workspaceSubtitle = getHouseholdWorkspaceSubtitle()
   const SettingsIcon = settingsNavItem.icon
   const moreNavItem = primaryNavItems.find((item) => item.href === '/more')
   const MoreIcon = moreNavItem?.icon
@@ -46,10 +54,10 @@ export function DesktopSidebar() {
         <BrandMark />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">
-            Household Finance
+            {householdName}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            Monthly budget workspace
+            {workspaceSubtitle}
           </p>
         </div>
       </div>

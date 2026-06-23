@@ -9,6 +9,7 @@ export type FinanceDataSourceContextValue = {
   dataSource: FinanceDataSource
   dataSourceKey: string
   isCloudLoading: boolean
+  renameCloudHousehold: (name: string) => Promise<CloudHousehold>
   replaceCloudHousehold: (household: CloudHousehold) => Promise<void>
 }
 

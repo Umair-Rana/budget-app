@@ -10,6 +10,7 @@ import {
   prepareSupabaseHousehold,
 } from '@/data/supabase/household-bootstrap'
 import { householdDeletedStorageKey } from '@/data/supabase/household-deletion'
+import { updateHouseholdName } from '@/data/supabase/household-rename'
 import {
   acceptHouseholdInvite,
   type PendingHouseholdInvite,
@@ -134,6 +135,38 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       }
     },
     [queryClient, supabase, user],
+  )
+
+  const renameCloudHousehold = useCallback(
+    async (name: string) => {
+      if (!supabase || !user || cloudState.status !== 'ready') {
+        throw new Error('Cloud household is not ready.')
+      }
+
+      const renamedHousehold = await updateHouseholdName({
+        client: supabase,
+        householdId: cloudState.household.id,
+        name,
+      })
+
+      setCloudState((currentState) => {
+        if (
+          currentState.status !== 'ready' ||
+          currentState.household.id !== renamedHousehold.id ||
+          currentState.userId !== user.id
+        ) {
+          return currentState
+        }
+
+        return {
+          ...currentState,
+          household: renamedHousehold,
+        }
+      })
+
+      return renamedHousehold
+    },
+    [cloudState, supabase, user],
   )
 
   const initializeCloudFinanceData = useCallback(
@@ -423,6 +456,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         dataSource,
         dataSourceKey,
         isCloudLoading,
+        renameCloudHousehold,
         replaceCloudHousehold,
       }}
     >

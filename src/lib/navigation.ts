@@ -30,7 +30,7 @@ export const primaryNavItems: AppNavItem[] = [
     title: 'Overview',
     href: '/',
     icon: LayoutDashboard,
-    description: 'Household money snapshot',
+    description: 'Money snapshot',
   },
   {
     title: 'Transactions',

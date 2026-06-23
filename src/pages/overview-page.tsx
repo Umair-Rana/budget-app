@@ -32,6 +32,7 @@ import {
   defaultDateFormat,
   defaultLocale,
 } from '@/lib/formatting'
+import { getHouseholdOverviewTitle } from '@/lib/household-display'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -48,7 +49,7 @@ function getErrorMessage(error: unknown) {
 export function OverviewPage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { dataSource, dataSourceKey } = useFinanceDataSource()
+  const { cloudHousehold, dataSource, dataSourceKey } = useFinanceDataSource()
   const [openDialog, setOpenDialog] = useState<OverviewDialog>(null)
   const dashboardQuery = useQuery({
     queryKey: [...overviewDashboardQueryKey, dataSourceKey],
@@ -212,7 +213,7 @@ export function OverviewPage() {
   return (
     <PageShell
       eyebrow="Overview"
-      title="Household money snapshot"
+      title={getHouseholdOverviewTitle(cloudHousehold)}
       description="A cloud dashboard built from your Supabase household records."
       action={
         <Button

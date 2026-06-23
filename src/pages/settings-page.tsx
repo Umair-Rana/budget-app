@@ -9,6 +9,7 @@ import { CategoryFormDialog } from '@/components/categories/category-form-dialog
 import { CategoryManagementSection } from '@/components/categories/category-management-section'
 import { CloudAccountSection } from '@/components/settings/cloud-account-section'
 import { DeleteHouseholdSection } from '@/components/settings/delete-household-section'
+import { HouseholdNameSection } from '@/components/settings/household-name-section'
 import { HouseholdMembersSection } from '@/components/settings/household-members-section'
 import { Button } from '@/components/ui/button'
 import {
@@ -326,6 +327,8 @@ export function SettingsPage() {
         </Card>
 
         <CloudAccountSection />
+
+        <HouseholdNameSection />
 
         <HouseholdMembersSection />
 
