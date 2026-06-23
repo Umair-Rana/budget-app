@@ -27,8 +27,8 @@ import {
   getPlannerWorkspace,
   plannerMonthQueryKey,
 } from '@/data/planner/planner-queries'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
 import { RepositoryDuplicateRecordError } from '@/data/repositories/common/repository-errors'
+import { invalidateBudgetMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -67,14 +67,6 @@ export function PlannerPage() {
   const loading = plannerQuery.isLoading
   const loadError = plannerQuery.error
 
-  const invalidatePlannerData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['planner'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   function handleBudgetSaveError(error: unknown) {
     if (error instanceof RepositoryDuplicateRecordError) {
       showToast({
@@ -97,7 +89,7 @@ export function PlannerPage() {
     mutationFn: (input: CreateBudgetAllocationInput) =>
       dataSource.budgets.create(input),
     onSuccess: async () => {
-      await invalidatePlannerData()
+      await invalidateBudgetMutationData(queryClient)
       showToast({
         title: 'Budget allocation created',
         description: 'The monthly category plan was saved locally.',
@@ -115,7 +107,7 @@ export function PlannerPage() {
       input: UpdateBudgetAllocationInput
     }) => dataSource.budgets.update(id, input),
     onSuccess: async () => {
-      await invalidatePlannerData()
+      await invalidateBudgetMutationData(queryClient)
       showToast({
         title: 'Budget allocation updated',
         description: 'The monthly category plan was updated.',
@@ -127,7 +119,7 @@ export function PlannerPage() {
   const archiveBudgetMutation = useMutation({
     mutationFn: (id: string) => dataSource.budgets.archive(id),
     onSuccess: async () => {
-      await invalidatePlannerData()
+      await invalidateBudgetMutationData(queryClient)
       showToast({
         title: 'Budget allocation archived',
         description: 'The allocation was removed from active planner views.',
@@ -145,7 +137,7 @@ export function PlannerPage() {
   const deleteBudgetMutation = useMutation({
     mutationFn: (id: string) => dataSource.budgets.deleteSoft(id),
     onSuccess: async () => {
-      await invalidatePlannerData()
+      await invalidateBudgetMutationData(queryClient)
       showToast({
         title: 'Budget allocation deleted',
         description: 'The allocation was soft deleted from active views.',

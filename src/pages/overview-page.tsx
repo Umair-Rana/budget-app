@@ -22,7 +22,6 @@ import {
   getOverviewDashboard,
   overviewDashboardQueryKey,
 } from '@/data/dashboard/dashboard-queries'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
 import type { CreateBillInput } from '@/data/models/bill'
 import type { CreateGoalInput } from '@/data/models/goal'
 import type { CreateLoanInput } from '@/data/models/loan'
@@ -33,6 +32,12 @@ import {
   defaultLocale,
 } from '@/lib/formatting'
 import { getHouseholdOverviewTitle } from '@/lib/household-display'
+import {
+  invalidateBillMutationData,
+  invalidateGoalMutationData,
+  invalidateLoanMutationData,
+  invalidateTransactionMutationData,
+} from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -62,23 +67,11 @@ export function OverviewPage() {
   const loading = dashboardQuery.isLoading
   const loadError = dashboardQuery.error
 
-  const invalidateDashboardData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-      queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-      queryClient.invalidateQueries({ queryKey: ['bills'] }),
-      queryClient.invalidateQueries({ queryKey: ['goals'] }),
-      queryClient.invalidateQueries({ queryKey: ['loans'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   const createTransactionMutation = useMutation({
     mutationFn: (input: CreateTransactionInput) =>
       dataSource.transactions.create(input),
     onSuccess: async () => {
-      await invalidateDashboardData()
+      await invalidateTransactionMutationData(queryClient)
       showToast({
         title: 'Transaction created',
         description: 'The dashboard was updated with the new transaction.',
@@ -96,7 +89,7 @@ export function OverviewPage() {
   const createBillMutation = useMutation({
     mutationFn: (input: CreateBillInput) => dataSource.bills.create(input),
     onSuccess: async () => {
-      await invalidateDashboardData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill created',
         description: 'The dashboard was updated with the new bill.',
@@ -114,7 +107,7 @@ export function OverviewPage() {
   const createGoalMutation = useMutation({
     mutationFn: (input: CreateGoalInput) => dataSource.goals.create(input),
     onSuccess: async () => {
-      await invalidateDashboardData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Goal created',
         description: 'The dashboard was updated with the new goal.',
@@ -132,7 +125,7 @@ export function OverviewPage() {
   const createLoanMutation = useMutation({
     mutationFn: (input: CreateLoanInput) => dataSource.loans.create(input),
     onSuccess: async () => {
-      await invalidateDashboardData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Loan created',
         description: 'The dashboard was updated with the new loan.',

@@ -28,8 +28,8 @@ import type {
   UpdateBillInput,
 } from '@/data/models/bill'
 import type { Category } from '@/data/models/category'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
 import { formatPkr } from '@/lib/formatting'
+import { invalidateBillMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -181,19 +181,10 @@ export function BillsPage() {
     categoriesQuery.error ??
     transactionsQuery.error
 
-  const invalidateBillData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-      queryClient.invalidateQueries({ queryKey: ['bills'] }),
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   const createBillMutation = useMutation({
     mutationFn: (input: CreateBillInput) => dataSource.bills.create(input),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill created',
         description: 'The bill was saved locally.',
@@ -217,7 +208,7 @@ export function BillsPage() {
       input: UpdateBillInput
     }) => dataSource.bills.update(id, input),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill updated',
         description: 'The bill changes were saved locally.',
@@ -235,7 +226,7 @@ export function BillsPage() {
   const archiveBillMutation = useMutation({
     mutationFn: (id: string) => dataSource.bills.archive(id),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill archived',
         description: 'The bill was removed from active bill views.',
@@ -253,7 +244,7 @@ export function BillsPage() {
   const deleteBillMutation = useMutation({
     mutationFn: (id: string) => dataSource.bills.deleteSoft(id),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill deleted',
         description: 'The bill was soft deleted from active views.',
@@ -277,7 +268,7 @@ export function BillsPage() {
       input: MarkBillPaidInput
     }) => dataSource.bills.markPaid(id, input),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill marked paid',
         description: 'A linked expense transaction was created.',
@@ -295,7 +286,7 @@ export function BillsPage() {
   const markUnpaidMutation = useMutation({
     mutationFn: (id: string) => dataSource.bills.markUnpaid(id),
     onSuccess: async () => {
-      await invalidateBillData()
+      await invalidateBillMutationData(queryClient)
       showToast({
         title: 'Bill marked unpaid',
         description: 'The linked expense was removed and balance impact reversed.',

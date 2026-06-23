@@ -29,7 +29,7 @@ import type {
   RecordLoanPaymentInput,
   UpdateLoanInput,
 } from '@/data/models/loan'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
+import { invalidateLoanMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -149,19 +149,10 @@ export function LoansPage() {
   const loadError =
     loansQuery.error ?? accountsQuery.error ?? transactionsQuery.error
 
-  const invalidateLoanData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-      queryClient.invalidateQueries({ queryKey: ['loans'] }),
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   const createLoanMutation = useMutation({
     mutationFn: (input: CreateLoanInput) => dataSource.loans.create(input),
     onSuccess: async () => {
-      await invalidateLoanData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Loan created',
         description: 'The loan and linked movement were saved locally.',
@@ -185,7 +176,7 @@ export function LoansPage() {
       input: UpdateLoanInput
     }) => dataSource.loans.update(id, input),
     onSuccess: async () => {
-      await invalidateLoanData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Loan updated',
         description: 'The loan changes were saved locally.',
@@ -203,7 +194,7 @@ export function LoansPage() {
   const archiveLoanMutation = useMutation({
     mutationFn: (id: string) => dataSource.loans.archive(id),
     onSuccess: async () => {
-      await invalidateLoanData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Loan archived',
         description: 'The loan was removed from active loan views.',
@@ -221,7 +212,7 @@ export function LoansPage() {
   const deleteLoanMutation = useMutation({
     mutationFn: (id: string) => dataSource.loans.deleteSoft(id),
     onSuccess: async () => {
-      await invalidateLoanData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Loan deleted',
         description: 'The loan was soft deleted from active views.',
@@ -245,7 +236,7 @@ export function LoansPage() {
       input: RecordLoanPaymentInput
     }) => dataSource.loans.recordPayment(id, input),
     onSuccess: async () => {
-      await invalidateLoanData()
+      await invalidateLoanMutationData(queryClient)
       showToast({
         title: 'Repayment recorded',
         description: 'The linked movement and account balance were updated.',

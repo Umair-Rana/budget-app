@@ -22,8 +22,8 @@ import type {
   WithdrawFromGoalInput,
 } from '@/data/models/goal'
 import type { Transaction } from '@/data/models/transaction'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
 import { formatPkr } from '@/lib/formatting'
+import { invalidateGoalMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -156,19 +156,10 @@ export function GoalsPage() {
   const loadError =
     goalsQuery.error ?? accountsQuery.error ?? transactionsQuery.error
 
-  const invalidateGoalData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-      queryClient.invalidateQueries({ queryKey: ['goals'] }),
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   const createGoalMutation = useMutation({
     mutationFn: (input: CreateGoalInput) => dataSource.goals.create(input),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Goal created',
         description: 'The goal was saved locally.',
@@ -192,7 +183,7 @@ export function GoalsPage() {
       input: UpdateGoalInput
     }) => dataSource.goals.update(id, input),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Goal updated',
         description: 'The goal changes were saved locally.',
@@ -210,7 +201,7 @@ export function GoalsPage() {
   const archiveGoalMutation = useMutation({
     mutationFn: (id: string) => dataSource.goals.archive(id),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Goal archived',
         description: 'The goal was removed from active goal views.',
@@ -228,7 +219,7 @@ export function GoalsPage() {
   const deleteGoalMutation = useMutation({
     mutationFn: (id: string) => dataSource.goals.deleteSoft(id),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Goal deleted',
         description: 'The goal was soft deleted from active views.',
@@ -252,7 +243,7 @@ export function GoalsPage() {
       input: AddGoalContributionInput
     }) => dataSource.goals.addContribution(id, input),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Contribution added',
         description: 'The linked movement and account balance were updated.',
@@ -276,7 +267,7 @@ export function GoalsPage() {
       input: WithdrawFromGoalInput
     }) => dataSource.goals.withdraw(id, input),
     onSuccess: async () => {
-      await invalidateGoalData()
+      await invalidateGoalMutationData(queryClient)
       showToast({
         title: 'Withdrawal completed',
         description: 'The linked movement and account balance were updated.',

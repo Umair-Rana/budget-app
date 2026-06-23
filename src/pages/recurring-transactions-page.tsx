@@ -19,7 +19,10 @@ import type {
   RecurringTransaction,
   UpdateRecurringTransactionInput,
 } from '@/data/models/recurring-transaction'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
+import {
+  invalidateRecurringTransactionGenerationData,
+  invalidateRecurringTransactionScheduleData,
+} from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -141,10 +144,7 @@ export function RecurringTransactionsPage() {
     mutationFn: (input: CreateRecurringTransactionInput) =>
       dataSource.recurringTransactions.create(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: recurringTransactionsQueryKey,
-      })
-      await queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+      await invalidateRecurringTransactionScheduleData(queryClient)
       showToast({
         title: 'Recurring transaction created',
         description: 'The schedule was saved to your cloud household.',
@@ -168,10 +168,7 @@ export function RecurringTransactionsPage() {
       input: UpdateRecurringTransactionInput
     }) => dataSource.recurringTransactions.update(id, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: recurringTransactionsQueryKey,
-      })
-      await queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+      await invalidateRecurringTransactionScheduleData(queryClient)
       showToast({
         title: 'Recurring transaction updated',
         description: 'The schedule changes were saved.',
@@ -189,10 +186,7 @@ export function RecurringTransactionsPage() {
   const archiveMutation = useMutation({
     mutationFn: (id: string) => dataSource.recurringTransactions.archive(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: recurringTransactionsQueryKey,
-      })
-      await queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+      await invalidateRecurringTransactionScheduleData(queryClient)
       showToast({
         title: 'Recurring transaction archived',
         description: 'Archived schedules will no longer generate transactions.',
@@ -210,10 +204,7 @@ export function RecurringTransactionsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => dataSource.recurringTransactions.deleteSoft(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: recurringTransactionsQueryKey,
-      })
-      await queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+      await invalidateRecurringTransactionScheduleData(queryClient)
       showToast({
         title: 'Recurring transaction deleted',
         description: 'The schedule was soft deleted.',
@@ -231,15 +222,7 @@ export function RecurringTransactionsPage() {
   const generateDueMutation = useMutation({
     mutationFn: () => dataSource.recurringTransactions.generateDue(),
     onSuccess: async (result) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: recurringTransactionsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ['transactions'] }),
-        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-        queryClient.invalidateQueries({ queryKey: ['reports'] }),
-        queryClient.invalidateQueries({ queryKey: ['planner'] }),
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-      ])
+      await invalidateRecurringTransactionGenerationData(queryClient)
       showToast({
         title: 'Recurring generation finished',
         description: `${result.generatedCount} generated, ${result.skippedCount} skipped, ${result.failedCount} failed.`,

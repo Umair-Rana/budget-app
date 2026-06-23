@@ -15,6 +15,7 @@ import type {
   CreateAccountInput,
   UpdateAccountInput,
 } from '@/data/models/account'
+import { invalidateAccountMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -68,7 +69,7 @@ export function AccountsPage() {
   const createAccountMutation = useMutation({
     mutationFn: (input: CreateAccountInput) => dataSource.accounts.create(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: accountsQueryKey })
+      await invalidateAccountMutationData(queryClient)
       showToast({
         title: 'Account created',
         description: 'The account was saved to your cloud household.',
@@ -92,7 +93,7 @@ export function AccountsPage() {
       input: UpdateAccountInput
     }) => dataSource.accounts.update(id, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: accountsQueryKey })
+      await invalidateAccountMutationData(queryClient)
       showToast({
         title: 'Account updated',
         description: 'The account changes were saved locally.',
@@ -110,7 +111,7 @@ export function AccountsPage() {
   const archiveAccountMutation = useMutation({
     mutationFn: (id: string) => dataSource.accounts.archive(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: accountsQueryKey })
+      await invalidateAccountMutationData(queryClient)
       showToast({
         title: 'Account archived',
         description: 'Archived accounts remain in history and can be hidden later.',
@@ -128,7 +129,7 @@ export function AccountsPage() {
   const deleteAccountMutation = useMutation({
     mutationFn: (id: string) => dataSource.accounts.deleteSoft(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: accountsQueryKey })
+      await invalidateAccountMutationData(queryClient)
       showToast({
         title: 'Account deleted',
         description: 'The account was soft deleted from active views.',

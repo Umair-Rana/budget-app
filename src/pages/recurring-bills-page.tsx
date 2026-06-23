@@ -18,7 +18,7 @@ import type {
   RecurringBill,
   UpdateRecurringBillInput,
 } from '@/data/models/recurring-bill'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
+import { invalidateRecurringBillData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -117,21 +117,11 @@ export function RecurringBillsPage() {
     dueRecurringBillsQuery.error ??
     categoriesQuery.error
 
-  const invalidateRecurringBillData = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: recurringBillsQueryKey }),
-      queryClient.invalidateQueries({ queryKey: ['bills'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-      queryClient.invalidateQueries({ queryKey: ['reports'] }),
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-    ])
-  }
-
   const createMutation = useMutation({
     mutationFn: (input: CreateRecurringBillInput) =>
       dataSource.recurringBills.create(input),
     onSuccess: async () => {
-      await invalidateRecurringBillData()
+      await invalidateRecurringBillData(queryClient)
       showToast({
         title: 'Recurring bill created',
         description: 'The bill schedule was saved to your cloud household.',
@@ -155,7 +145,7 @@ export function RecurringBillsPage() {
       input: UpdateRecurringBillInput
     }) => dataSource.recurringBills.update(id, input),
     onSuccess: async () => {
-      await invalidateRecurringBillData()
+      await invalidateRecurringBillData(queryClient)
       showToast({
         title: 'Recurring bill updated',
         description: 'The bill schedule changes were saved.',
@@ -173,7 +163,7 @@ export function RecurringBillsPage() {
   const archiveMutation = useMutation({
     mutationFn: (id: string) => dataSource.recurringBills.archive(id),
     onSuccess: async () => {
-      await invalidateRecurringBillData()
+      await invalidateRecurringBillData(queryClient)
       showToast({
         title: 'Recurring bill archived',
         description: 'Archived schedules will no longer generate bills.',
@@ -191,7 +181,7 @@ export function RecurringBillsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => dataSource.recurringBills.deleteSoft(id),
     onSuccess: async () => {
-      await invalidateRecurringBillData()
+      await invalidateRecurringBillData(queryClient)
       showToast({
         title: 'Recurring bill deleted',
         description: 'The schedule was soft deleted.',
@@ -209,7 +199,7 @@ export function RecurringBillsPage() {
   const generateDueMutation = useMutation({
     mutationFn: () => dataSource.recurringBills.generateDue(),
     onSuccess: async (result) => {
-      await invalidateRecurringBillData()
+      await invalidateRecurringBillData(queryClient)
       showToast({
         title: 'Recurring bill generation finished',
         description: `${result.generatedCount} generated, ${result.skippedCount} skipped, ${result.failedCount} failed.`,

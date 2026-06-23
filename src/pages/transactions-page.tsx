@@ -22,7 +22,6 @@ import type {
   TransactionType,
   UpdateTransactionInput,
 } from '@/data/models/transaction'
-import { notificationsQueryKey } from '@/data/notifications/notification-queries'
 import {
   getTransactionTypeLabel,
   transactionSortOptions,
@@ -30,6 +29,7 @@ import {
   type TransactionSortValue,
 } from '@/data/display/transaction-options'
 import { formatPkr } from '@/lib/formatting'
+import { invalidateTransactionMutationData } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
 
@@ -265,11 +265,7 @@ export function TransactionsPage() {
     mutationFn: (input: CreateTransactionInput) =>
       dataSource.transactions.create(input),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-        queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-      ])
+      await invalidateTransactionMutationData(queryClient)
       showToast({
         title: 'Transaction created',
         description: 'The transaction and account balance were saved.',
@@ -293,11 +289,7 @@ export function TransactionsPage() {
       input: UpdateTransactionInput
     }) => dataSource.transactions.update(id, input),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-        queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-      ])
+      await invalidateTransactionMutationData(queryClient)
       showToast({
         title: 'Transaction updated',
         description: 'Old balance impact was reversed and the new impact applied.',
@@ -315,11 +307,7 @@ export function TransactionsPage() {
   const archiveTransactionMutation = useMutation({
     mutationFn: (id: string) => dataSource.transactions.archive(id),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-        queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-      ])
+      await invalidateTransactionMutationData(queryClient)
       showToast({
         title: 'Transaction archived',
         description: 'The transaction impact was reversed from account balances.',
@@ -337,11 +325,7 @@ export function TransactionsPage() {
   const deleteTransactionMutation = useMutation({
     mutationFn: (id: string) => dataSource.transactions.deleteSoft(id),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
-        queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey }),
-      ])
+      await invalidateTransactionMutationData(queryClient)
       showToast({
         title: 'Transaction deleted',
         description: 'The transaction was soft deleted and balance impact reversed.',
