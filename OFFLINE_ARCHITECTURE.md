@@ -152,3 +152,100 @@ This milestone does not add:
 - database migrations.
 
 The production runtime remains cloud-only.
+
+## SQLite POC Results
+
+Milestone 3A.1 adds an isolated SQLite proof-of-concept under
+`src/data/local-sqlite/poc/`. It is not wired into the finance runtime, React
+providers, Supabase repositories, or user interface.
+
+### Packages selected
+
+- Android native SQLite: `@capacitor-community/sqlite`
+- Web SQLite WASM: `@sqlite.org/sqlite-wasm`
+
+The Android package was selected because it is the established Capacitor
+community SQLite plugin and exposes native Android persistence through the
+same Capacitor project already used by the APK.
+
+The Web package was selected because it is the SQLite project's official WASM
+distribution and supports OPFS when the browser and response headers allow it.
+
+### POC scope
+
+The POC uses only this table:
+
+```sql
+create table if not exists sqlite_poc_notes (
+  id text primary key,
+  title text not null,
+  created_at text not null,
+  updated_at text not null
+);
+```
+
+It also creates `schema_migrations` and records the migration ID
+`0001_sqlite_poc_notes`. The runner proves migration ordering plus insert,
+query, update, and delete through a small shared driver contract.
+
+### OPFS and Vercel headers
+
+The Web POC runs SQLite WASM inside a module worker. It attempts OPFS first and
+falls back to a non-OPFS SQLite database if OPFS is unavailable. Durable Web
+SQLite persistence depends on OPFS availability.
+
+OPFS-backed SQLite requires cross-origin isolation. Before exposing Web SQLite
+runtime behavior in production, Vercel should serve the app with these headers:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Those headers are documented but not applied in this spike because no
+production route uses SQLite yet, and `Cross-Origin-Embedder-Policy` can affect
+third-party scripts, images, and embeds. Apply and test them before enabling
+Web SQLite for real app data.
+
+### Persistence result
+
+- Android persistence is implemented through a native SQLite database named
+  `household_finance_sqlite_poc`. Manual APK/device verification is still
+  required to confirm persistence after app restart.
+- Web persistence is implemented through SQLite WASM OPFS when available.
+  Manual browser verification with cross-origin isolation headers is still
+  required to confirm persistence after refresh on the deployment target.
+
+### Known limitations
+
+- The POC is intentionally not user-visible.
+- The POC does not model finance tables, household membership, sync queues, or
+  conflict handling.
+- Web OPFS requires browser support and deployment headers.
+- Safari support needs extra caution. Older Safari versions are not a good
+  target for the OPFS-backed SQLite path.
+- The IndexedDB fallback should remain until Web SQLite persistence is proven
+  on the browsers and Vercel configuration the app will actually support.
+
+### Go / No-Go recommendation
+
+Conditional Go for SQLite-first architecture. The shared migration runner and
+driver contract are viable, Android native SQLite is available through
+Capacitor, and Web SQLite WASM can be loaded through Vite. Keep the IndexedDB
+fallback until OPFS persistence is manually verified on deployed Web builds and
+the cross-origin isolation headers are accepted for production.

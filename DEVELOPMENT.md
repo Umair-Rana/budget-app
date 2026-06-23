@@ -92,6 +92,50 @@ production browser IndexedDB data or Supabase data. IndexedDB repositories and
 backup code remain in the project as legacy unused runtime implementations until
 a later cleanup milestone.
 
+## SQLite POC
+
+Milestone 3A.1 includes an isolated SQLite proof-of-concept under:
+
+```text
+src/data/local-sqlite/poc/
+```
+
+It is not wired into production finance flows. Use it only as a development
+spike for proving local SQLite drivers.
+
+Verification commands:
+
+```powershell
+npm.cmd run verify
+npm.cmd run build
+npm.cmd exec cap sync android
+```
+
+Android native POC entry point:
+
+```ts
+import { runAndroidSqlitePoc } from '@/data/local-sqlite/poc/android-sqlite-poc'
+```
+
+Web SQLite WASM POC entry point:
+
+```ts
+import { runWebSqlitePoc } from '@/data/local-sqlite/poc/web-sqlite-poc'
+```
+
+If a temporary harness is needed, keep it development-only and remove it before
+shipping. Do not add a production route or settings control for this POC.
+
+For durable Web OPFS testing, serve the app with cross-origin isolation:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Do not enable these headers blindly in production without checking third-party
+assets and Supabase auth behavior.
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows
