@@ -249,3 +249,87 @@ driver contract are viable, Android native SQLite is available through
 Capacitor, and Web SQLite WASM can be loaded through Vite. Keep the IndexedDB
 fallback until OPFS persistence is manually verified on deployed Web builds and
 the cross-origin isolation headers are accepted for production.
+
+## Local SQLite Schema Foundation
+
+Milestone 3A.2 adds the real local SQLite schema and migration foundation under
+`src/data/local-sqlite/`. This is separate from the POC folder and is still not
+wired into app runtime, finance repositories, Supabase sync, or UI.
+
+### Clean-start decision
+
+Production currently has no significant user data, so the local SQLite schema
+starts clean. There is no production data backfill from existing Supabase
+records in this milestone.
+
+Local migrations still exist because future installed APKs and browser local
+databases will need deterministic upgrades. Even with a clean initial rollout,
+each future schema change should be delivered as an ordered local SQLite
+migration.
+
+### Schema overview
+
+The first local migration is:
+
+```text
+0001_initial_local_sqlite_schema
+```
+
+It creates local finance tables for:
+
+- `households`
+- `household_members`
+- `accounts`
+- `categories`
+- `transactions`
+- `bills`
+- `goals`
+- `loans`
+- `budgets`
+- `recurring_transactions`
+- `recurring_bills`
+- `notifications`
+
+It also creates local infrastructure tables:
+
+- `schema_migrations`
+- `local_sync_metadata`
+- `operation_queue`
+- `sync_conflicts`
+- `tombstones`
+
+The schema uses SQLite-compatible column types only: `text`, `integer`, and
+`real`. IDs are stored as `id text primary key`. Timestamps are ISO strings.
+Household-owned records include `household_id text not null`, and finance
+tables include `updated_at` plus `deleted_at` for future sync and soft-delete
+handling.
+
+### Operation queue purpose
+
+`operation_queue` is the future durable list of business operations that must be
+replayed to Supabase when connectivity returns. It stores operation type,
+entity type, entity ID, payload JSON, status, attempt count, idempotency key,
+retry timing, and error details.
+
+No replay logic is implemented yet.
+
+### Sync metadata purpose
+
+`local_sync_metadata` will track per-household/per-entity pull and push cursors.
+It records `last_pulled_at`, `last_pushed_at`, and an optional remote cursor so
+future sync can resume incrementally instead of reloading everything.
+
+No pull/push sync is implemented yet.
+
+### Tombstone purpose
+
+`tombstones` records deleted entity IDs and deletion timestamps. This lets
+future sync distinguish "record is missing because it was deleted" from "record
+has not been downloaded yet", which is essential for multi-device deletion
+correctness.
+
+### IndexedDB fallback status
+
+IndexedDB fallback remains in place. It should not be removed until Web SQLite
+WASM + OPFS persistence is proven on deployed builds and accepted for the
+browser support matrix.

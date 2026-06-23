@@ -136,6 +136,48 @@ Cross-Origin-Embedder-Policy: require-corp
 Do not enable these headers blindly in production without checking third-party
 assets and Supabase auth behavior.
 
+## Local SQLite Schema Foundation
+
+Milestone 3A.2 adds the real local SQLite schema and migration foundation under:
+
+```text
+src/data/local-sqlite/
+```
+
+The POC remains isolated under:
+
+```text
+src/data/local-sqlite/poc/
+```
+
+The real schema foundation is not connected to finance runtime yet. Do not add
+local read/write paths, repository switching, offline CRUD, or Supabase replay
+while working in this area unless a later milestone explicitly asks for it.
+
+Useful verification commands:
+
+```powershell
+npm.cmd run test -- src/tests/local-sqlite-migrations.test.ts
+npm.cmd run verify
+npm.cmd run build
+npm.cmd exec cap sync android
+```
+
+Local migration files live in:
+
+```text
+src/data/local-sqlite/migrations/
+```
+
+The first real migration is:
+
+```text
+0001_initial_local_sqlite_schema
+```
+
+Future local schema changes should add a new ordered migration instead of
+editing applied migrations once an offline-capable APK or Web build has shipped.
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows
