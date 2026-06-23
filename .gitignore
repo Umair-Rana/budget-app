@@ -17,6 +17,13 @@ dist-ssr
 !.env.example
 supabase/.temp
 
+# Android / Capacitor local outputs and secrets
+android/**/build/
+android/.gradle/
+android/local.properties
+android/**/*.jks
+android/**/*.keystore
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

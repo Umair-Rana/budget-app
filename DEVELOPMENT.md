@@ -13,6 +13,36 @@ npm.cmd run verify
 
 `npm.cmd run verify` runs build, lint, and the full Vitest regression suite.
 
+## Android APK - Capacitor
+
+The Android APK uses Capacitor to wrap the existing Vite web build. This phase
+is online-only and uses the same Supabase backend as the web app.
+
+Common commands:
+
+```powershell
+npm.cmd run build
+npm.cmd exec cap sync android
+npm.cmd exec cap open android
+```
+
+Debug APK build:
+
+```text
+Open Android Studio → Build → Build Bundle(s) / APK(s) → Build APK(s)
+```
+
+If the Android command-line toolchain is configured, a debug APK can also be
+built from the Android project directory:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+Commit the `android/` project for Capacitor, but do not commit local Android
+build outputs, `local.properties`, keystores, or signing secrets.
+
 ## Data Safety
 
 Household Finance is now a cloud-only app at runtime. Production finance data
