@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom'
 
 import { FinanceDataProvider } from '@/providers/finance-data-provider'
 import { AuthProvider } from '@/providers/auth-provider'
+import { NetworkProvider } from '@/providers/network-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { ToastProvider } from '@/providers/toast-provider'
 import { AppRoutes } from '@/routes/app-routes'
@@ -30,9 +31,11 @@ function App() {
         <ToastProvider>
           <AuthProvider>
             <FinanceDataProvider>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
+              <NetworkProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </NetworkProvider>
             </FinanceDataProvider>
           </AuthProvider>
         </ToastProvider>

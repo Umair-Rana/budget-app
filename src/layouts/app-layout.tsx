@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 
 import { BrandMark } from '@/components/app/brand-mark'
+import { ConnectionStatusBanner } from '@/components/app/connection-status-banner'
 import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { MobileBottomNav } from '@/components/app/mobile-bottom-nav'
 import { ThemeToggle } from '@/components/app/theme-toggle'
@@ -49,6 +50,8 @@ export function AppLayout() {
               </div>
             </div>
           </header>
+
+          <ConnectionStatusBanner />
 
           <main className="flex-1 px-4 py-5 pb-28 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:px-8 lg:py-8 lg:pb-8">
             <Outlet />
