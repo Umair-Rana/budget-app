@@ -9,6 +9,13 @@ export type {
   FinanceDataSource,
   FinanceDataSourceMode,
 } from '@/data/contracts/finance-data-source'
+export type {
+  LocalEntityRepository,
+  LocalFinanceRepository,
+  LocalRepositoryListOptions,
+  LocalRepositoryMutationMetadata,
+  LocalSyncMetadataRepository,
+} from '@/data/contracts/local-finance-repository'
 export type { RecurringBillsRepositoryContract } from '@/data/contracts/recurring-bills-contract'
 export type { RecurringTransactionsRepositoryContract } from '@/data/contracts/recurring-transactions-contract'
 export type {

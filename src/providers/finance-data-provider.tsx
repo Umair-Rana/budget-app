@@ -15,7 +15,7 @@ import {
   acceptHouseholdInvite,
   type PendingHouseholdInvite,
 } from '@/data/supabase/household-sharing'
-import { createSupabaseFinanceDataSource } from '@/data/supabase/supabase-finance-data-source'
+import { createFinanceDataSource } from '@/data/data-source/finance-data-source-factory'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { useAuth } from '@/hooks/use-auth'
 import { FinanceDataSourceContext } from '@/providers/finance-data-source-context'
@@ -85,7 +85,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         throw new Error('A signed-in user is required to load household data.')
       }
 
-      const dataSource = createSupabaseFinanceDataSource({
+      const dataSource = createFinanceDataSource({
         client: cloudClient,
         householdId: household.id,
         userId: cloudUser.id,
@@ -109,7 +109,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         throw new Error('A signed-in user is required to switch households.')
       }
 
-      const dataSource = createSupabaseFinanceDataSource({
+      const dataSource = createFinanceDataSource({
         client: supabase,
         householdId: household.id,
         userId: user.id,

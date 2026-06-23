@@ -8,7 +8,7 @@ import type { RecurringBillsRepositoryContract } from '@/data/contracts/recurrin
 import type { RecurringTransactionsRepositoryContract } from '@/data/contracts/recurring-transactions-contract'
 import type { TransactionsRepositoryContract } from '@/data/contracts/transactions-contract'
 
-export type FinanceDataSourceMode = 'indexeddb' | 'supabase'
+export type FinanceDataSourceMode = 'indexeddb' | 'offline' | 'supabase'
 
 export interface FinanceDataSource {
   mode: FinanceDataSourceMode
