@@ -1,8 +1,9 @@
 import { AlertTriangle } from 'lucide-react'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { useDialogFocus } from '@/hooks/use-dialog-focus'
+import { registerDialogClose } from '@/lib/dialog-stack'
 
 type ConfirmationDialogProps = {
   open: boolean
@@ -35,12 +36,23 @@ export function ConfirmationDialog({
     onClose: onCancel,
   })
 
+  useEffect(() => {
+    if (!open || isSubmitting) {
+      return undefined
+    }
+
+    return registerDialogClose({
+      id: `confirmation:${title}`,
+      onClose: onCancel,
+    })
+  }, [isSubmitting, onCancel, open, title])
+
   if (!open) {
     return null
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm">
       <div
         ref={dialogRef}
         role="alertdialog"

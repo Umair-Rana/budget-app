@@ -120,7 +120,7 @@ export function AuthScreen() {
 
   if (!configured) {
     return (
-      <div className="min-h-svh bg-background p-4 text-foreground sm:p-8">
+      <div className="min-h-svh bg-background p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] text-foreground sm:p-8">
         <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-xl items-center justify-center sm:min-h-[calc(100svh-4rem)]">
           <Card className="w-full">
             <CardHeader>
@@ -151,7 +151,7 @@ export function AuthScreen() {
 
   if (signedIn) {
     return (
-      <div className="min-h-svh bg-background p-4 text-foreground sm:p-8">
+      <div className="min-h-svh bg-background p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] text-foreground sm:p-8">
         <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-xl items-center justify-center sm:min-h-[calc(100svh-4rem)]">
           <Card className="w-full">
             <CardHeader>
@@ -185,7 +185,7 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-svh bg-background p-4 text-foreground sm:p-8">
+    <div className="min-h-svh bg-background p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] text-foreground sm:p-8">
       <div className="mx-auto flex min-h-[calc(100svh-2rem)] max-w-xl items-center justify-center sm:min-h-[calc(100svh-4rem)]">
         <Card className="w-full">
           <CardHeader>

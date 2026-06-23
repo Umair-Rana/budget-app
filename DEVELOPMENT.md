@@ -43,6 +43,35 @@ cd android
 Commit the `android/` project for Capacitor, but do not commit local Android
 build outputs, `local.properties`, keystores, or signing secrets.
 
+### Android UX Notes
+
+- Android hardware/software back is handled through the Capacitor App plugin.
+  Back closes the top open dialog first, navigates back or home on nested
+  routes, and asks before exiting from the Overview route.
+- The main Android activity uses `android:windowSoftInputMode="adjustResize"`
+  so the WebView resizes when the keyboard opens instead of covering form
+  actions.
+- The app shell and dialogs use CSS safe-area insets for status bar and bottom
+  navigation spacing.
+
+### Android Icon and Splash Assets
+
+Current icon and splash assets are the default Capacitor-generated assets and
+are acceptable for this milestone.
+
+Asset locations:
+
+```text
+android/app/src/main/res/mipmap-*/ic_launcher*.png
+android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml
+android/app/src/main/res/drawable*/splash.png
+android/app/src/main/res/drawable/ic_launcher_background.xml
+android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+```
+
+Future branding work can replace these assets with generated Android icon and
+splash sets. Do not edit signing keys or local build outputs for icon changes.
+
 ## Data Safety
 
 Household Finance is now a cloud-only app at runtime. Production finance data

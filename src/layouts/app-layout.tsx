@@ -6,6 +6,7 @@ import { DesktopSidebar } from '@/components/app/desktop-sidebar'
 import { MobileBottomNav } from '@/components/app/mobile-bottom-nav'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 import { NotificationBell } from '@/components/notifications/notification-bell'
+import { useAndroidBackButton } from '@/hooks/use-android-back-button'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import {
   getHouseholdDisplayName,
@@ -13,12 +14,14 @@ import {
 } from '@/lib/household-display'
 
 export function AppLayout() {
+  useAndroidBackButton()
+
   const { cloudHousehold } = useFinanceDataSource()
   const householdName = getHouseholdDisplayName(cloudHousehold)
   const householdDetails = getHouseholdHeaderDetails(cloudHousehold)
 
   return (
-    <div className="min-h-svh bg-background text-foreground lg:h-svh lg:overflow-hidden">
+    <div className="min-h-svh bg-background pt-[env(safe-area-inset-top)] text-foreground lg:h-svh lg:overflow-hidden">
       <div className="flex min-h-svh lg:h-svh lg:min-h-0">
         <DesktopSidebar />
 
@@ -53,7 +56,7 @@ export function AppLayout() {
 
           <ConnectionStatusBanner />
 
-          <main className="flex-1 px-4 py-5 pb-28 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:px-8 lg:py-8 lg:pb-8">
+          <main className="flex-1 px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:px-8 lg:py-8 lg:pb-8">
             <Outlet />
           </main>
         </div>

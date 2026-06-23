@@ -1,8 +1,9 @@
 import { X } from 'lucide-react'
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { useDialogFocus } from '@/hooks/use-dialog-focus'
+import { registerDialogClose } from '@/lib/dialog-stack'
 import { cn } from '@/lib/utils'
 
 export function ModalDialogShell({
@@ -30,8 +31,19 @@ export function ModalDialogShell({
     onClose,
   })
 
+  useEffect(() => {
+    if (closeDisabled) {
+      return undefined
+    }
+
+    return registerDialogClose({
+      id,
+      onClose,
+    })
+  }, [closeDisabled, id, onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 p-0 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:items-center sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
@@ -41,7 +53,7 @@ export function ModalDialogShell({
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         className={cn(
-          'max-h-[92svh] w-full overflow-y-auto rounded-t-lg border bg-card text-card-foreground shadow-xl sm:rounded-lg',
+          'max-h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-full overflow-y-auto overscroll-contain rounded-t-lg border bg-card pb-[env(safe-area-inset-bottom)] text-card-foreground shadow-xl sm:rounded-lg sm:pb-0',
           maxWidthClassName,
         )}
       >
