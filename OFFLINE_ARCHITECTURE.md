@@ -333,3 +333,69 @@ correctness.
 IndexedDB fallback remains in place. It should not be removed until Web SQLite
 WASM + OPFS persistence is proven on deployed builds and accepted for the
 browser support matrix.
+
+## Local SQLite Drivers
+
+Milestone 3A.3 adds real platform driver implementations for the
+`LocalSqliteDriver` contract. These drivers can create/open local databases,
+run the real local schema migrations, execute parameterized SQL, wrap work in
+transactions, and close connections.
+
+They are still not connected to finance repositories, app startup, Supabase
+sync, or UI. The production runtime remains cloud-first.
+
+### Android driver
+
+Android uses `@capacitor-community/sqlite` through
+`AndroidLocalSqliteDriver`. The local database name is:
+
+```text
+household_finance_local
+```
+
+The driver supports:
+
+- `exec(sql)` for SQL statements;
+- `run(sql, params)` for parameterized writes;
+- `query<T>(sql, params)` for parameterized reads;
+- `transaction(work)` using `begin transaction`, `commit`, and `rollback`;
+- `close()` for safely closing the native connection.
+
+### Web WASM driver
+
+Web uses `@sqlite.org/sqlite-wasm` through a module worker. The main-thread
+driver sends SQL requests to the worker so SQLite work does not block React.
+
+The worker attempts OPFS first. If OPFS is unavailable or cannot be opened, it
+falls back to a transient SQLite database. The fallback is useful for smoke
+testing the driver contract but should not be treated as durable offline
+storage.
+
+Durable Web OPFS persistence still requires cross-origin isolation headers:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Those headers are still documented-only. They are not required by the current
+production app because the SQLite driver is not called from runtime.
+
+### Driver factory and initializer
+
+`createLocalSqliteDriver()` selects:
+
+- native Capacitor platform: Android SQLite driver;
+- browser platform: Web SQLite WASM driver;
+- Vitest/test mode: in-memory driver.
+
+`initializeLocalSqlite()` creates a driver, runs all local SQLite migrations,
+and returns the initialized driver. It closes the driver if migration
+initialization fails.
+
+### Development smoke helper
+
+`runLocalSqliteSmokeTest()` initializes a driver, runs migrations, performs a
+safe insert/query/update/delete against `local_sync_metadata`, and closes the
+driver. It is guarded as development-only and is not wired to any production
+route or UI.

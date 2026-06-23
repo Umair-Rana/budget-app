@@ -1,6 +1,7 @@
 export type LocalSqliteStatementParams = readonly unknown[]
 
 export interface LocalSqliteDriver {
+  close?: () => Promise<void>
   exec(sql: string): Promise<void>
   query<T>(sql: string, params?: LocalSqliteStatementParams): Promise<T[]>
   run(sql: string, params?: LocalSqliteStatementParams): Promise<void>

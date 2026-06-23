@@ -178,6 +178,63 @@ The first real migration is:
 Future local schema changes should add a new ordered migration instead of
 editing applied migrations once an offline-capable APK or Web build has shipped.
 
+## Local SQLite Drivers
+
+Milestone 3A.3 adds real local SQLite driver implementations:
+
+```text
+src/data/local-sqlite/drivers/android-sqlite-driver.ts
+src/data/local-sqlite/drivers/web-sqlite-wasm-driver.ts
+src/data/local-sqlite/drivers/web-sqlite-wasm-worker.ts
+src/data/local-sqlite/drivers/create-local-sqlite-driver.ts
+```
+
+The initializer lives at:
+
+```text
+src/data/local-sqlite/initialize-local-sqlite.ts
+```
+
+The development-only smoke helper lives at:
+
+```text
+src/data/local-sqlite/local-sqlite-smoke-test.ts
+```
+
+Smoke helper entry point:
+
+```ts
+import { runLocalSqliteSmokeTest } from '@/data/local-sqlite/local-sqlite-smoke-test'
+```
+
+Only call the smoke helper from a temporary development harness. Do not wire it
+to app startup, production UI, finance repositories, or Supabase sync.
+
+Useful driver verification commands:
+
+```powershell
+npm.cmd run test -- src/tests/local-sqlite-drivers.test.ts
+npm.cmd run verify
+npm.cmd run build
+npm.cmd exec cap sync android
+```
+
+If native SQLite driver behavior changes, also build the Android project:
+
+```powershell
+cd android
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+.\gradlew.bat :app:assembleDebug --no-daemon --console=plain --stacktrace
+```
+
+Web SQLite OPFS persistence still requires these deployment headers before it
+can be trusted for durable browser offline data:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows
