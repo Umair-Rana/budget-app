@@ -9,6 +9,7 @@ import {
   type CloudHousehold,
   prepareSupabaseHousehold,
 } from '@/data/supabase/household-bootstrap'
+import { householdDeletedStorageKey } from '@/data/supabase/household-deletion'
 import {
   acceptHouseholdInvite,
   type PendingHouseholdInvite,
@@ -124,6 +125,10 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
 
       try {
         await dataSource.categories.seedDefaultsIfNeeded()
+      } catch {
+        // The replacement household is already the active safe state. A
+        // transient default-category seeding failure should not make the
+        // destructive delete flow look rolled back when it was not.
       } finally {
         void queryClient.invalidateQueries()
       }
@@ -250,6 +255,38 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
 
     void queryClient.invalidateQueries()
   }, [cloudReady, queryClient])
+
+  useEffect(() => {
+    function handleHouseholdDeleted(event: StorageEvent) {
+      if (
+        event.key !== householdDeletedStorageKey ||
+        !event.newValue ||
+        cloudState.status !== 'ready'
+      ) {
+        return
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue) as {
+          deletedHouseholdId?: unknown
+        }
+
+        if (payload.deletedHouseholdId !== cloudState.household.id) {
+          return
+        }
+
+        bootstrappedUserIdRef.current = null
+        queryClient.removeQueries()
+        setCloudState({ status: 'idle' })
+      } catch {
+        // Ignore malformed cross-tab notifications.
+      }
+    }
+
+    window.addEventListener('storage', handleHouseholdDeleted)
+
+    return () => window.removeEventListener('storage', handleHouseholdDeleted)
+  }, [cloudState, queryClient])
 
   if (!configured || authLoading || !signedIn) {
     return <AuthScreen />

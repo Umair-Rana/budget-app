@@ -12,6 +12,7 @@ import { SectionCard } from '@/components/app/section-card'
 import { StatusBadge } from '@/components/app/status-badge'
 import { Button } from '@/components/ui/button'
 import {
+  broadcastHouseholdDeleted,
   canDeleteHousehold,
   deleteHouseholdAndCreateReplacement,
   isExactHouseholdNameConfirmation,
@@ -129,6 +130,10 @@ export function DeleteHouseholdSection() {
       })
 
       await replaceCloudHousehold(replacementHousehold)
+      broadcastHouseholdDeleted({
+        deletedHouseholdId: householdId,
+        replacementHouseholdId: replacementHousehold.id,
+      })
 
       return replacementHousehold
     },

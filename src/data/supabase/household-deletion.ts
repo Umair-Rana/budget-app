@@ -4,6 +4,9 @@ import type { CloudHousehold } from '@/data/supabase/household-bootstrap'
 import type { HouseholdMemberRole } from '@/data/supabase/household-sharing'
 import type { Database } from '@/lib/supabase/database.types'
 
+export const householdDeletedStorageKey =
+  'household-finance-household-deleted'
+
 type SupabaseRpcResult<T> = {
   data: T | null
   error: unknown
@@ -83,6 +86,33 @@ export function canDeleteHousehold({
   role?: HouseholdMemberRole
 }) {
   return isOnline && role === 'owner'
+}
+
+export function broadcastHouseholdDeleted({
+  deletedHouseholdId,
+  replacementHouseholdId,
+}: {
+  deletedHouseholdId: string
+  replacementHouseholdId: string
+}) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    localStorage.setItem(
+      householdDeletedStorageKey,
+      JSON.stringify({
+        deletedHouseholdId,
+        replacementHouseholdId,
+        timestamp: Date.now(),
+      }),
+    )
+  } catch {
+    // Cross-tab notification is best-effort. The deleting tab has already
+    // switched households, and storage restrictions should not turn a
+    // successful server-side deletion into a client-side failure.
+  }
 }
 
 export async function deleteHouseholdAndCreateReplacement({

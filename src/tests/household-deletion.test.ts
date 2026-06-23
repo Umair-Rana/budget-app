@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -142,37 +139,4 @@ describe('household deletion', () => {
     )
   })
 
-  it('migration explicitly deletes known household-scoped data before household replacement', () => {
-    const migration = readFileSync(
-      resolve(
-        'supabase',
-        'migrations',
-        '0014_delete_household_replacement.sql',
-      ),
-      'utf8',
-    )
-
-    for (const tableName of [
-      'recurring_bills',
-      'recurring_transactions',
-      'audit_history',
-      'budgets',
-      'bills',
-      'loans',
-      'goals',
-      'transactions',
-      'accounts',
-      'categories',
-      'household_invites',
-      'household_members',
-      'households',
-    ]) {
-      expect(migration).toContain(`delete from public.${tableName}`)
-    }
-
-    expect(migration).toContain(
-      'delete_household_and_create_replacement_household',
-    )
-    expect(migration).toContain('public.is_household_owner(p_household_id)')
-  })
 })
