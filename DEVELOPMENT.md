@@ -48,11 +48,21 @@ build outputs, `local.properties`, keystores, or signing secrets.
 - Android hardware/software back is handled through the Capacitor App plugin.
   Back closes the top open dialog first, navigates back or home on nested
   routes, and asks before exiting from the Overview route.
+- Android network status is handled through the Capacitor Network plugin rather
+  than relying on `navigator.onLine`, which can be unreliable inside Android
+  WebView. The shared `NetworkProvider` still uses browser events on Web.
+- On Android app resume, the app rechecks current connectivity immediately and
+  updates the connection banner. When the provider detects an offline-to-online
+  transition, it invalidates finance queries once so realtime/data can recover
+  from missed events.
 - The main Android activity uses `android:windowSoftInputMode="adjustResize"`
   so the WebView resizes when the keyboard opens instead of covering form
   actions.
 - The app shell and dialogs use CSS safe-area insets for status bar and bottom
   navigation spacing.
+- Current Android manifest permissions are intentionally minimal. The APK uses
+  `android.permission.INTERNET`; no location, contacts, storage, notification,
+  or background permissions are required for the current cloud-only runtime.
 
 ### Android Icon and Splash Assets
 

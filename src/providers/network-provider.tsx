@@ -1,13 +1,21 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { SyncState } from '@/data/sync/sync-state'
 import {
   createInitialNetworkSnapshot,
-  getBrowserConnectionType,
-  getNetworkSnapshotAfterOffline,
-  getNetworkSnapshotAfterOnline,
+  getNetworkSnapshotAfterStatus,
   type NetworkSnapshot,
 } from '@/lib/network-status'
+import { createNetworkStatusAdapter } from '@/lib/network-status-adapter'
+import { invalidateFinanceData } from '@/lib/query-invalidation'
 import {
   NetworkStatusContext,
   type NetworkStatusContextValue,
@@ -20,9 +28,11 @@ function getNavigator() {
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [snapshot, setSnapshot] = useState<NetworkSnapshot>(() =>
     createInitialNetworkSnapshot(getNavigator()),
   )
+  const lastOnlineRef = useRef(snapshot.isOnline)
 
   const setSyncState = useCallback((syncState: SyncState) => {
     setSnapshot((current) => ({
@@ -32,11 +42,10 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined
-    }
-
     let reconnectingTimer: ReturnType<typeof setTimeout> | null = null
+    let active = true
+    const cleanupCallbacks: Array<() => void> = []
+    const adapter = createNetworkStatusAdapter()
 
     function clearReconnectingTimer() {
       if (reconnectingTimer !== null) {
@@ -45,12 +54,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    function handleOnline() {
+    function finishReconnectingSoon() {
       clearReconnectingTimer()
-
-      setSnapshot((current) =>
-        getNetworkSnapshotAfterOnline(current, window.navigator),
-      )
 
       reconnectingTimer = setTimeout(() => {
         setSnapshot((current) => ({
@@ -60,37 +65,71 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       }, reconnectingDurationMs)
     }
 
-    function handleOffline() {
-      clearReconnectingTimer()
-      setSnapshot(getNetworkSnapshotAfterOffline)
-    }
-
-    function handleConnectionChange() {
-      setSnapshot((current) => ({
-        ...current,
-        connectionType: current.isOnline
-          ? getBrowserConnectionType(window.navigator)
-          : 'none',
-      }))
-    }
-
-    const connection = (
-      window.navigator as Navigator & {
-        connection?: EventTarget
+    function applyStatus(
+      status: Parameters<typeof getNetworkSnapshotAfterStatus>[1],
+    ) {
+      if (!active) {
+        return
       }
-    ).connection
 
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    connection?.addEventListener('change', handleConnectionChange)
+      const wasOnline = lastOnlineRef.current
+      lastOnlineRef.current = status.connected
+
+      if (!status.connected) {
+        clearReconnectingTimer()
+      }
+
+      setSnapshot((current) => ({
+        ...getNetworkSnapshotAfterStatus(current, status),
+        isReconnecting: status.connected && !wasOnline,
+      }))
+
+      if (status.connected && !wasOnline) {
+        finishReconnectingSoon()
+        void invalidateFinanceData(queryClient)
+      }
+    }
+
+    async function refreshStatus() {
+      try {
+        applyStatus(await adapter.getCurrentStatus())
+      } catch {
+        // Keep the last known status if a platform status check fails.
+      }
+    }
+
+    void refreshStatus()
+
+    void Promise.resolve(
+      adapter.addNetworkStatusListener((status) => applyStatus(status)),
+    ).then((cleanup) => {
+      if (!active) {
+        cleanup()
+        return
+      }
+
+      cleanupCallbacks.push(cleanup)
+    })
+
+    void Promise.resolve(adapter.addResumeListener(refreshStatus)).then(
+      (cleanup) => {
+        if (!active) {
+          cleanup()
+          return
+        }
+
+        cleanupCallbacks.push(cleanup)
+      },
+    )
 
     return () => {
+      active = false
       clearReconnectingTimer()
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-      connection?.removeEventListener('change', handleConnectionChange)
+      for (const cleanup of cleanupCallbacks) {
+        cleanup()
+      }
     }
-  }, [])
+  }, [queryClient])
 
   const value = useMemo<NetworkStatusContextValue>(
     () => ({

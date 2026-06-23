@@ -88,6 +88,33 @@ export function getNetworkSnapshotAfterOnline(
   }
 }
 
+export function getNetworkSnapshotAfterStatus(
+  current: NetworkSnapshot,
+  status: {
+    connectionType: ConnectionType
+    connected: boolean
+  },
+  now: () => Date = () => new Date(),
+): NetworkSnapshot {
+  if (!status.connected) {
+    return getNetworkSnapshotAfterOffline(current)
+  }
+
+  return {
+    ...current,
+    connectionType: status.connectionType,
+    isOnline: true,
+    isReconnecting: !current.isOnline,
+    lastOnlineAt: now().toISOString(),
+    syncState:
+      current.syncState === SyncState.SYNCING ||
+      current.syncState === SyncState.SYNCED ||
+      current.syncState === SyncState.ERROR
+        ? current.syncState
+        : SyncState.ONLINE,
+  }
+}
+
 export function getNetworkSnapshotAfterOffline(
   current: NetworkSnapshot,
 ): NetworkSnapshot {

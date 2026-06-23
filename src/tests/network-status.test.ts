@@ -6,6 +6,7 @@ import {
   createInitialNetworkSnapshot,
   getNetworkSnapshotAfterOffline,
   getNetworkSnapshotAfterOnline,
+  getNetworkSnapshotAfterStatus,
   normalizeConnectionType,
 } from '@/lib/network-status'
 
@@ -90,6 +91,39 @@ describe('network status model', () => {
     expect(normalizeConnectionType('ethernet')).toBe('ethernet')
     expect(normalizeConnectionType('4g')).toBe('cellular')
     expect(normalizeConnectionType(undefined)).toBe('unknown')
+  })
+
+  it('maps Capacitor Network status into offline and restored snapshots', () => {
+    const onlineSnapshot = createInitialNetworkSnapshot(
+      createNavigatorMock({ onLine: true, type: 'wifi' }),
+      () => new Date('2026-06-23T10:00:00.000Z'),
+    )
+    const offlineSnapshot = getNetworkSnapshotAfterStatus(onlineSnapshot, {
+      connected: false,
+      connectionType: 'none',
+    })
+    const restoredSnapshot = getNetworkSnapshotAfterStatus(
+      offlineSnapshot,
+      {
+        connected: true,
+        connectionType: 'wifi',
+      },
+      () => new Date('2026-06-23T10:10:00.000Z'),
+    )
+
+    expect(offlineSnapshot).toMatchObject({
+      connectionType: 'none',
+      isOnline: false,
+      isReconnecting: false,
+      syncState: SyncState.OFFLINE,
+    })
+    expect(restoredSnapshot).toMatchObject({
+      connectionType: 'wifi',
+      isOnline: true,
+      isReconnecting: true,
+      lastOnlineAt: '2026-06-23T10:10:00.000Z',
+      syncState: SyncState.ONLINE,
+    })
   })
 })
 
