@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { AuthScreen } from '@/components/auth/auth-screen'
@@ -68,6 +68,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const { configured, loading: authLoading, session, user } = useAuth()
   const supabase = getSupabaseClient()
+  const bootstrappedUserIdRef = useRef<string | null>(null)
   const [cloudState, setCloudState] = useState<CloudBootstrapState>({
     status: 'idle',
   })
@@ -98,6 +99,36 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       })
     },
     [],
+  )
+
+  const replaceCloudHousehold = useCallback(
+    async (household: CloudHousehold) => {
+      if (!supabase || !user) {
+        throw new Error('A signed-in user is required to switch households.')
+      }
+
+      const dataSource = createSupabaseFinanceDataSource({
+        client: supabase,
+        householdId: household.id,
+        userId: user.id,
+      })
+
+      bootstrappedUserIdRef.current = user.id
+      queryClient.removeQueries()
+      setCloudState({
+        status: 'ready',
+        dataSource,
+        household,
+        userId: user.id,
+      })
+
+      try {
+        await dataSource.categories.seedDefaultsIfNeeded()
+      } finally {
+        void queryClient.invalidateQueries()
+      }
+    },
+    [queryClient, supabase, user],
   )
 
   const initializeCloudFinanceData = useCallback(
@@ -149,11 +180,28 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!configured || authLoading || !session || !user || !supabase) {
+      if (!session && bootstrappedUserIdRef.current !== null) {
+        bootstrappedUserIdRef.current = null
+        setCloudState({ status: 'idle' })
+      }
+
       return undefined
     }
 
     const cloudClient = supabase
     const cloudUser = user
+    const cloudUserId = cloudUser.id
+
+    if (
+      bootstrappedUserIdRef.current === cloudUserId &&
+      cloudState.status !== 'idle' &&
+      cloudState.userId === cloudUserId
+    ) {
+      return undefined
+    }
+
+    bootstrappedUserIdRef.current = cloudUserId
+
     const bootstrapTimer = window.setTimeout(() => {
       void initializeCloudFinanceData({
         cloudClient,
@@ -164,6 +212,8 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(bootstrapTimer)
   }, [
     authLoading,
+    cloudState.status,
+    cloudState.userId,
     configured,
     initializeCloudFinanceData,
     session,
@@ -336,6 +386,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         dataSource,
         dataSourceKey,
         isCloudLoading,
+        replaceCloudHousehold,
       }}
     >
       {children}

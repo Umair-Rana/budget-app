@@ -1758,6 +1758,26 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_household_and_create_replacement_household: {
+        Args: { p_household_id: string }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          deleted_at: string | null
+          id: string
+          locale: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "households"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_household_members: {
         Args: { p_household_id: string }
         Returns: {
