@@ -266,6 +266,78 @@ throwing:
 Local SQLite write operations are not implemented yet.
 ```
 
+## Local SQLite Cloud Hydration
+
+Milestone 3A.5 adds an internal hydration module:
+
+```text
+src/data/local-sqlite/hydration/
+```
+
+The hydrator can copy the current Supabase-backed household projection into
+local SQLite using a `FinanceDataSource`, a `LocalSqliteDriver`, and either a
+Supabase client or an explicit household snapshot.
+
+It is intentionally not wired into app startup, providers, or UI. Runtime reads
+and writes remain Supabase-only.
+
+Useful hydration test command:
+
+```powershell
+npm.cmd run test -- src/tests/local-sqlite-hydration.test.ts
+```
+
+The optional `runLocalHydrationSmokeTest(...)` helper is guarded with
+`import.meta.env.DEV`. Use it only for development experiments after the local
+SQLite driver has been initialized and migrations have run.
+
+## Gated Local SQLite Read Mode
+
+Milestone 3A.6 adds a disabled-by-default local SQLite read mode for development
+testing.
+
+Default:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=false
+```
+
+To test local reads, set this in `.env.local` and restart Vite:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=true
+```
+
+Expected behavior when enabled:
+
+- Supabase remains the source of truth.
+- The app initializes local SQLite after cloud household bootstrap.
+- Current household data hydrates from Supabase into SQLite.
+- Finance reads use local SQLite repositories.
+- Create/update/delete/pay/generate actions still write to Supabase.
+- Successful Supabase writes trigger a best-effort local rehydration.
+- If SQLite initialization or hydration fails, the app falls back to Supabase.
+
+To disable local read mode, remove the variable or set it back to:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=false
+```
+
+Useful test command:
+
+```powershell
+npm.cmd run test -- src/tests/finance-data-source-factory-local-read.test.ts
+```
+
+Limitations:
+
+- This is not offline mode.
+- Offline writes are not implemented.
+- Realtime events invalidate queries as before, but do not yet automatically
+  rehydrate SQLite.
+- IndexedDB fallback remains in place.
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows

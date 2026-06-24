@@ -445,3 +445,139 @@ and server reconciliation. Those are deliberately deferred to later milestones.
 
 IndexedDB fallback remains in place and untouched. It should not be removed
 until the SQLite read/write/sync path is fully proven on Android and Web.
+
+## Cloud to Local Hydration
+
+Milestone 3A.5 adds a controlled Supabase-to-local SQLite hydration layer. It
+builds a local SQLite projection from the current authenticated household's
+cloud data, but it does not change app runtime behavior.
+
+### Not a production historical migration
+
+Hydration is not a historical production backfill system. It is a runtime
+projection builder for the current logged-in household. The app still treats
+Supabase as the source of truth, and existing cloud reads/writes remain the
+active production path.
+
+### Cloud remains source of truth
+
+The hydrator reads all current finance entities from the Supabase-backed
+`FinanceDataSource` using include-all repository options so archived/deleted
+records can be copied into the local projection. Household and membership rows
+come from either a Supabase client fetch or an explicit household snapshot.
+
+For this milestone, cloud wins. Existing local rows for the household are
+soft-marked as deleted before cloud rows are upserted back into SQLite. This
+prevents stale local projection rows without permanently deleting local data or
+introducing tombstone sync behavior.
+
+### Tables hydrated
+
+The hydration layer writes:
+
+- `households`
+- `household_members`
+- `accounts`
+- `categories`
+- `transactions`
+- `bills`
+- `goals`
+- `loans`
+- `budgets`
+- `recurring_transactions`
+- `recurring_bills`
+- `notifications`
+
+Notifications are derived from the current finance data because the current app
+does not store app notifications as a Supabase table. They are written as a
+local projection only.
+
+### Transaction and metadata behavior
+
+Hydration runs inside `LocalSqliteDriver.transaction(...)`. Android uses
+`begin transaction`, `commit`, and `rollback`; Web and tests use the same driver
+contract. If hydration fails during local writes, the driver is expected to
+rollback and the returned hydration result includes a clear error list.
+
+After a successful hydration, `local_sync_metadata` is updated once per entity
+type with:
+
+- `household_id`
+- `entity_type`
+- `last_pulled_at`
+- `updated_at`
+
+Remote cursors are intentionally not used yet.
+
+### Runtime remains Supabase-only
+
+The hydrator is exported as an internal data-layer utility and is not wired into
+React providers, app startup, route loaders, or the finance data source factory.
+Future milestones can manually invoke it during local read-path experiments,
+but production runtime remains Supabase-only after 3A.5.
+
+### Future read-path switching plan
+
+Before switching reads to local SQLite, the app still needs a gated read-path
+strategy, refresh scheduling, realtime-to-local projection updates, stale-row
+policy validation, operation queue design, and conflict/replay handling for
+future offline writes.
+
+## Gated Local SQLite Read Path
+
+Milestone 3A.6 adds a disabled-by-default local SQLite read path for
+development and diagnostic testing.
+
+### Default runtime remains Supabase
+
+The feature flag is:
+
+```text
+VITE_LOCAL_SQLITE_READ_MODE=false
+```
+
+When this flag is absent or false, `createFinanceDataSourceForRuntime(...)`
+returns the Supabase finance data source and does not initialize local SQLite.
+This remains the default production behavior.
+
+### Local read mode behavior
+
+When enabled in development/testing, the runtime factory:
+
+1. creates the Supabase finance data source;
+2. initializes local SQLite and runs migrations;
+3. hydrates the current household projection from Supabase into SQLite;
+4. returns a hybrid data source.
+
+The hybrid data source reads from local SQLite repositories and delegates all
+mutations to Supabase repositories.
+
+### Writes remain Supabase-only
+
+No local writes, operation replay, conflict handling, or sync queue processing
+exists yet. App mutations still call Supabase. After a successful Supabase
+mutation in local read mode, the hybrid data source performs a best-effort
+rehydration so subsequent local reads can see the updated cloud projection.
+
+If post-write rehydration fails, the Supabase write result is preserved and the
+diagnostic logger records the local refresh failure.
+
+### Fallback behavior
+
+If SQLite initialization or initial hydration fails, the app falls back to the
+Supabase data source. App startup should not fail because local diagnostic read
+mode could not start.
+
+### Realtime behavior
+
+Realtime invalidation remains unchanged. It still invalidates finance queries
+after Supabase events. Automatic realtime-triggered local rehydration is not
+implemented in this milestone and should be handled in a later sync/read-path
+hardening step.
+
+### Not offline mode
+
+This is not offline-first behavior. It is a gated local read-path test harness.
+Future milestones must still implement local write operations, an operation
+queue, idempotent replay, conflict handling, and robust sync metadata before
+offline mode can be enabled.

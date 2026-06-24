@@ -15,7 +15,10 @@ import {
   acceptHouseholdInvite,
   type PendingHouseholdInvite,
 } from '@/data/supabase/household-sharing'
-import { createFinanceDataSource } from '@/data/data-source/finance-data-source-factory'
+import {
+  createFinanceDataSource,
+  createFinanceDataSourceForRuntime,
+} from '@/data/data-source/finance-data-source-factory'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { useAuth } from '@/hooks/use-auth'
 import { useFinanceRealtimeInvalidation } from '@/hooks/use-finance-realtime-invalidation'
@@ -86,13 +89,20 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         throw new Error('A signed-in user is required to load household data.')
       }
 
-      const dataSource = createFinanceDataSource({
+      const supabaseDataSource = createFinanceDataSource({
         client: cloudClient,
         householdId: household.id,
         userId: cloudUser.id,
       })
 
-      await dataSource.categories.seedDefaultsIfNeeded()
+      await supabaseDataSource.categories.seedDefaultsIfNeeded()
+
+      const dataSource = await createFinanceDataSourceForRuntime({
+        client: cloudClient,
+        householdId: household.id,
+        supabaseDataSource,
+        userId: cloudUser.id,
+      })
 
       setCloudState({
         status: 'ready',
@@ -110,7 +120,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
         throw new Error('A signed-in user is required to switch households.')
       }
 
-      const dataSource = createFinanceDataSource({
+      const supabaseDataSource = createFinanceDataSource({
         client: supabase,
         householdId: household.id,
         userId: user.id,
@@ -120,13 +130,26 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       queryClient.removeQueries()
       setCloudState({
         status: 'ready',
-        dataSource,
+        dataSource: supabaseDataSource,
         household,
         userId: user.id,
       })
 
       try {
-        await dataSource.categories.seedDefaultsIfNeeded()
+        await supabaseDataSource.categories.seedDefaultsIfNeeded()
+        const dataSource = await createFinanceDataSourceForRuntime({
+          client: supabase,
+          householdId: household.id,
+          supabaseDataSource,
+          userId: user.id,
+        })
+
+        setCloudState({
+          status: 'ready',
+          dataSource,
+          household,
+          userId: user.id,
+        })
       } catch {
         // The replacement household is already the active safe state. A
         // transient default-category seeding failure should not make the
@@ -200,9 +223,16 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
           return
         }
 
+        const dataSource = await createFinanceDataSourceForRuntime({
+          client: cloudClient,
+          householdId: gateResult.result.household.id,
+          supabaseDataSource: gateResult.result.dataSource,
+          userId: cloudUser.id,
+        })
+
         setCloudState({
           status: 'ready',
-          dataSource: gateResult.result.dataSource,
+          dataSource,
           household: gateResult.result.household,
           userId: cloudUser.id,
         })
