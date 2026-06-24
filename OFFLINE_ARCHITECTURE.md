@@ -399,3 +399,49 @@ initialization fails.
 safe insert/query/update/delete against `local_sync_metadata`, and closes the
 driver. It is guarded as development-only and is not wired to any production
 route or UI.
+
+## Local SQLite Mapping Layer
+
+Milestone 3A.4 adds the local SQLite finance row types, domain mappers, and
+read-only repository scaffold. This prepares a future local read path without
+switching the app runtime.
+
+### Mapper purpose
+
+The mapping layer translates SQLite rows that use snake_case columns and
+SQLite-safe values into existing domain models such as `Account`, `Transaction`,
+`Bill`, `Goal`, `Loan`, budgets, recurring records, and app notifications.
+
+JSON fields are stored as JSON text locally. For example, transaction tags are
+stored in `tags_json` and mapped back to the domain `tags` array.
+
+### Read-only repository scaffold purpose
+
+Local repositories now expose read methods such as `getAll`, `getById`, and
+entity-specific filters like `getByType`, `getByMonth`, and `getDue`.
+
+All repository reads are household-scoped and exclude deleted rows by default.
+Archived rows are also excluded by default where the app's repository options
+support that behavior.
+
+### Runtime remains Supabase-only
+
+The local SQLite data source scaffold is not connected to
+`createFinanceDataSource(...)`, React providers, routes, or app startup. The
+active production runtime remains Supabase-only.
+
+### Write operations are deferred
+
+Write methods intentionally throw:
+
+```text
+Local SQLite write operations are not implemented yet.
+```
+
+Offline writes require operation queue replay, idempotency, conflict handling,
+and server reconciliation. Those are deliberately deferred to later milestones.
+
+### IndexedDB fallback status
+
+IndexedDB fallback remains in place and untouched. It should not be removed
+until the SQLite read/write/sync path is fully proven on Android and Web.

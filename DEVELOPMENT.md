@@ -235,6 +235,37 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
+## Local SQLite Finance Mapping and Read Repositories
+
+Milestone 3A.4 adds local SQLite row types, mappers, read-only repositories, and
+a local finance data source scaffold.
+
+Key files:
+
+```text
+src/data/local-sqlite/local-finance-row-types.ts
+src/data/local-sqlite/mappers/
+src/data/local-sqlite/repositories/
+src/data/local-sqlite/local-sqlite-finance-data-source.ts
+```
+
+The scaffold is intentionally not wired into app runtime. Do not switch
+providers, hooks, or `createFinanceDataSource(...)` to SQLite until a later
+milestone explicitly asks for it.
+
+Useful mapping/repository test command:
+
+```powershell
+npm.cmd run test -- src/tests/local-sqlite-finance-mappers.test.ts
+```
+
+Local SQLite repository writes are intentionally unavailable and should keep
+throwing:
+
+```text
+Local SQLite write operations are not implemented yet.
+```
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows
