@@ -7,7 +7,7 @@ import {
   localReadModeOnlineRequiredMessage,
 } from '@/data/data-source/finance-data-source-factory'
 import type { LocalSqliteDriver } from '@/data/local-sqlite/local-sqlite-types'
-import { featureFlags } from '@/lib/feature-flags'
+import { createFeatureFlags } from '@/lib/feature-flags'
 import { setLastKnownNetworkConnected } from '@/lib/network-status'
 
 function createRepositoryStub(overrides: Record<string, unknown> = {}) {
@@ -93,8 +93,8 @@ function createHydratedCacheDriverStub(): LocalSqliteDriver & {
 }
 
 describe('local SQLite read mode feature flag', () => {
-  it('defaults localSqliteReadMode to false', () => {
-    expect(featureFlags.localSqliteReadMode).toBe(false)
+  it('defaults localSqliteReadMode to false when the env flag is absent', () => {
+    expect(createFeatureFlags({}).localSqliteReadMode).toBe(false)
   })
 })
 

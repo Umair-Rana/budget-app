@@ -162,6 +162,14 @@ export async function createOfflineLocalTransaction({
   const transaction = createOfflineTransactionRecord(input)
   const accountId = getOfflineTransactionAccountId(transaction)
 
+  if (import.meta.env.DEV) {
+    console.debug('[local-sqlite-write] Local transaction write started.', {
+      accountId,
+      householdId,
+      transactionType: transaction.type,
+    })
+  }
+
   if (!accountId) {
     throw new Error(offlineTransactionAccountRequiredMessage)
   }
@@ -196,7 +204,22 @@ export async function createOfflineLocalTransaction({
       now: transaction.createdAt,
       transactionId: transaction.id,
     })
+
+    if (import.meta.env.DEV) {
+      console.debug('[local-sqlite-write] Operation queue insert succeeded.', {
+        householdId,
+        transactionId: transaction.id,
+      })
+    }
   })
+
+  if (import.meta.env.DEV) {
+    console.debug('[local-sqlite-write] Local transaction write succeeded.', {
+      householdId,
+      transactionId: transaction.id,
+      transactionType: transaction.type,
+    })
+  }
 
   return transaction
 }

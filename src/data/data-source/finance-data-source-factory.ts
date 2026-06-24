@@ -154,6 +154,10 @@ function createHybridLocalReadDataSource({
 
   async function createTransaction(input: Parameters<FinanceDataSource['transactions']['create']>[0]) {
     if (!isOnline()) {
+      logger.debug('[local-sqlite-read] Routing transaction create to local SQLite.', {
+        transactionType: input.type,
+      })
+
       return createOfflineLocalTransaction({
         driver: localDriver,
         householdId,
@@ -161,6 +165,10 @@ function createHybridLocalReadDataSource({
         userId,
       })
     }
+
+    logger.debug('[local-sqlite-read] Routing transaction create to Supabase.', {
+      transactionType: input.type,
+    })
 
     return runSupabaseWrite('transactions.create', () =>
       supabaseDataSource.transactions.create(input),
@@ -438,6 +446,13 @@ function createOfflineCachedLocalReadDataSource({
 
   async function createTransaction(input: Parameters<FinanceDataSource['transactions']['create']>[0]) {
     if (!isOnline()) {
+      if (import.meta.env.DEV) {
+        console.debug(
+          '[local-sqlite-read] Routing cached transaction create to local SQLite.',
+          { transactionType: input.type },
+        )
+      }
+
       return createOfflineLocalTransaction({
         driver: localDriver,
         householdId,
@@ -448,6 +463,13 @@ function createOfflineCachedLocalReadDataSource({
 
     if (!supabaseDataSource) {
       throwLocalReadModeOnlineRequired()
+    }
+
+    if (import.meta.env.DEV) {
+      console.debug(
+        '[local-sqlite-read] Routing cached transaction create to Supabase.',
+        { transactionType: input.type },
+      )
     }
 
     return supabaseDataSource.transactions.create(input)
@@ -827,13 +849,17 @@ export async function createFinanceDataSourceForRuntime({
     throw new Error('Offline repository runtime is not implemented yet.')
   }
 
+  const diagnostics = createDevLogger(logger ?? console)
+
+  diagnostics.debug('[finance-runtime] localSqliteReadMode enabled:', {
+    localSqliteReadMode: flags.localSqliteReadMode,
+  })
+
   const cloudDataSource = supabaseDataSource ?? createSupabaseFinanceDataSource(input)
 
   if (!flags.localSqliteReadMode) {
     return cloudDataSource
   }
-
-  const diagnostics = createDevLogger(logger ?? console)
 
   if (!input.householdId) {
     diagnostics.warn(
