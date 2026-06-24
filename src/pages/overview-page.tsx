@@ -36,7 +36,7 @@ import {
   invalidateBillMutationData,
   invalidateGoalMutationData,
   invalidateLoanMutationData,
-  invalidateTransactionMutationData,
+  invalidateTransactionMutationDataForDataSource,
 } from '@/lib/query-invalidation'
 import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import { useToast } from '@/providers/toast-context'
@@ -71,7 +71,10 @@ export function OverviewPage() {
     mutationFn: (input: CreateTransactionInput) =>
       dataSource.transactions.create(input),
     onSuccess: async () => {
-      await invalidateTransactionMutationData(queryClient)
+      await invalidateTransactionMutationDataForDataSource(
+        queryClient,
+        dataSource,
+      )
       showToast({
         title: 'Transaction created',
         description: 'The dashboard was updated with the new transaction.',

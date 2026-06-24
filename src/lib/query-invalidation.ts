@@ -1,5 +1,14 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 
+import type { FinanceDataSource } from '@/data/contracts'
+import { getLastKnownNetworkConnected } from '@/lib/network-status'
+
+type FinanceInvalidationRefetchType = 'active' | 'all' | 'inactive' | 'none'
+
+type FinanceInvalidationOptions = {
+  refetchType?: FinanceInvalidationRefetchType
+}
+
 export const financeQueryKeys = {
   accounts: ['accounts'],
   bills: ['bills'],
@@ -17,10 +26,13 @@ export const financeQueryKeys = {
 async function invalidateFinanceQueryKeys(
   queryClient: QueryClient,
   queryKeys: readonly QueryKey[],
+  options: FinanceInvalidationOptions = {},
 ) {
+  const refetchType = options.refetchType ?? 'all'
+
   await Promise.all(
     queryKeys.map((queryKey) =>
-      queryClient.invalidateQueries({ queryKey, refetchType: 'all' }),
+      queryClient.invalidateQueries({ queryKey, refetchType }),
     ),
   )
 }
@@ -58,6 +70,7 @@ export async function invalidateAccountMutationData(queryClient: QueryClient) {
 
 export async function invalidateTransactionMutationData(
   queryClient: QueryClient,
+  options?: FinanceInvalidationOptions,
 ) {
   await invalidateFinanceQueryKeys(queryClient, [
     financeQueryKeys.accounts,
@@ -66,7 +79,27 @@ export async function invalidateTransactionMutationData(
     financeQueryKeys.planner,
     financeQueryKeys.reports,
     financeQueryKeys.transactions,
-  ])
+  ], options)
+}
+
+export function shouldUseNonBlockingOfflineInvalidation(
+  dataSource: Pick<FinanceDataSource, 'mode'>,
+) {
+  return dataSource.mode === 'offline' && !getLastKnownNetworkConnected()
+}
+
+export async function invalidateTransactionMutationDataForDataSource(
+  queryClient: QueryClient,
+  dataSource: Pick<FinanceDataSource, 'mode'>,
+) {
+  if (shouldUseNonBlockingOfflineInvalidation(dataSource)) {
+    void invalidateTransactionMutationData(queryClient, {
+      refetchType: 'active',
+    })
+    return
+  }
+
+  await invalidateTransactionMutationData(queryClient)
 }
 
 export async function invalidateBillMutationData(queryClient: QueryClient) {

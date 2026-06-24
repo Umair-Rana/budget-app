@@ -1,13 +1,15 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { QueryClient as RealQueryClient } from '@tanstack/react-query'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   invalidateBillMutationData,
   invalidateRecurringBillData,
   invalidateRecurringTransactionGenerationData,
   invalidateTransactionMutationData,
+  invalidateTransactionMutationDataForDataSource,
 } from '@/lib/query-invalidation'
+import { setLastKnownNetworkConnected } from '@/lib/network-status'
 
 function createQueryClientMock() {
   const invalidateQueries = vi.fn().mockResolvedValue(undefined)
@@ -34,6 +36,10 @@ function expectKeysToContain(
 }
 
 describe('finance query invalidation helpers', () => {
+  afterEach(() => {
+    setLastKnownNetworkConnected(null)
+  })
+
   it('invalidates transaction lists and derived financial summaries after transaction mutations', async () => {
     const { invalidateQueries, queryClient } = createQueryClientMock()
 
@@ -81,6 +87,44 @@ describe('finance query invalidation helpers', () => {
     await invalidateTransactionMutationData(queryClient)
 
     expect(reportFetchCount).toBe(2)
+  })
+
+  it('does not await refetch completion for offline local transaction mutations', async () => {
+    const invalidateQueries = vi.fn(
+      () => new Promise<undefined>(() => undefined),
+    )
+    const queryClient = { invalidateQueries } as unknown as QueryClient
+
+    setLastKnownNetworkConnected(false)
+
+    await expect(
+      invalidateTransactionMutationDataForDataSource(queryClient, {
+        mode: 'offline',
+      }),
+    ).resolves.toBeUndefined()
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['transactions'],
+        refetchType: 'active',
+      }),
+    )
+  })
+
+  it('continues awaiting full invalidation for online transaction mutations', async () => {
+    const { invalidateQueries, queryClient } = createQueryClientMock()
+
+    setLastKnownNetworkConnected(true)
+
+    await invalidateTransactionMutationDataForDataSource(queryClient, {
+      mode: 'offline',
+    })
+
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['transactions'],
+        refetchType: 'all',
+      }),
+    )
   })
 
   it('invalidates account balances, bill data, and derived summaries after bill payment mutations', async () => {
