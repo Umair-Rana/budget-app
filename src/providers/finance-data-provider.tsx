@@ -22,6 +22,11 @@ import {
 } from '@/data/data-source/finance-data-source-factory'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
 import { featureFlags } from '@/lib/feature-flags'
+import { createNetworkStatusAdapter } from '@/lib/network-status-adapter'
+import {
+  getLastKnownNetworkConnected,
+  setLastKnownNetworkConnected,
+} from '@/lib/network-status'
 import { useAuth } from '@/hooks/use-auth'
 import { useFinanceRealtimeInvalidation } from '@/hooks/use-finance-realtime-invalidation'
 import { FinanceDataSourceContext } from '@/providers/finance-data-source-context'
@@ -72,8 +77,14 @@ function bootstrapErrorMessage(error: unknown) {
   return 'Cloud household setup failed.'
 }
 
-function isBrowserOnline() {
-  return typeof window === 'undefined' ? true : window.navigator.onLine
+async function getReliableOnlineStatus() {
+  try {
+    const status = await createNetworkStatusAdapter().getCurrentStatus()
+    setLastKnownNetworkConnected(status.connected)
+    return status.connected
+  } catch {
+    return getLastKnownNetworkConnected()
+  }
 }
 
 export function FinanceDataProvider({ children }: { children: ReactNode }) {
@@ -214,7 +225,9 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       setCloudState({ status: 'loading', userId: cloudUser.id })
 
       try {
-        if (featureFlags.localSqliteReadMode && !isBrowserOnline()) {
+        const isOnline = await getReliableOnlineStatus()
+
+        if (featureFlags.localSqliteReadMode && !isOnline) {
           const cachedRuntime = await createCachedLocalReadRuntime({
             client: cloudClient,
             userId: cloudUser.id,

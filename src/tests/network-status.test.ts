@@ -1,13 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { SyncState } from '@/data/sync/sync-state'
 import { getConnectionStatusBannerView } from '@/lib/connection-status-banner'
 import {
   createInitialNetworkSnapshot,
+  getLastKnownNetworkConnected,
   getNetworkSnapshotAfterOffline,
   getNetworkSnapshotAfterOnline,
   getNetworkSnapshotAfterStatus,
+  initializeLastKnownNetworkConnected,
   normalizeConnectionType,
+  setLastKnownNetworkConnected,
 } from '@/lib/network-status'
 
 function createNavigatorMock({
@@ -29,6 +32,10 @@ function createNavigatorMock({
 }
 
 describe('network status model', () => {
+  afterEach(() => {
+    setLastKnownNetworkConnected(null)
+  })
+
   it('creates initial online provider state from navigator.onLine', () => {
     const snapshot = createInitialNetworkSnapshot(
       createNavigatorMock({ onLine: true, type: 'wifi' }),
@@ -124,6 +131,27 @@ describe('network status model', () => {
       lastOnlineAt: '2026-06-23T10:10:00.000Z',
       syncState: SyncState.ONLINE,
     })
+  })
+
+  it('prefers the last reliable platform status over navigator.onLine', () => {
+    const navigatorMock = createNavigatorMock({ onLine: true, type: 'wifi' })
+
+    setLastKnownNetworkConnected(false)
+
+    expect(getLastKnownNetworkConnected(navigatorMock)).toBe(false)
+
+    setLastKnownNetworkConnected(true)
+
+    expect(getLastKnownNetworkConnected(navigatorMock)).toBe(true)
+  })
+
+  it('does not let initial navigator status overwrite an existing platform status', () => {
+    const navigatorMock = createNavigatorMock({ onLine: true, type: 'wifi' })
+
+    setLastKnownNetworkConnected(false)
+    initializeLastKnownNetworkConnected(true)
+
+    expect(getLastKnownNetworkConnected(navigatorMock)).toBe(false)
   })
 })
 

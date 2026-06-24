@@ -4,6 +4,7 @@ import type { CloudHousehold } from '@/data/supabase/household-bootstrap'
 import { createSupabaseFinanceDataSource } from '@/data/supabase/supabase-finance-data-source'
 import type { SupabaseFinanceRepositoryContextInput } from '@/data/supabase/repositories/supabase-repository-context'
 import { featureFlags } from '@/lib/feature-flags'
+import { getLastKnownNetworkConnected } from '@/lib/network-status'
 
 export type FinanceRepositoryRuntime = 'cloud'
 
@@ -58,7 +59,7 @@ export type LocalSqliteSyncCapableFinanceDataSource = FinanceDataSource & {
 }
 
 function getBrowserOnlineStatus() {
-  return typeof window === 'undefined' ? true : window.navigator.onLine
+  return getLastKnownNetworkConnected()
 }
 
 export function createFinanceDataSource(

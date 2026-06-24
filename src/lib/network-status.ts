@@ -15,11 +15,28 @@ export interface NetworkSnapshot {
   syncState: SyncState
 }
 
+let lastKnownConnected: boolean | null = null
+
 type NavigatorWithConnection = Navigator & {
   connection?: {
     effectiveType?: string
     type?: string
   }
+}
+
+export function setLastKnownNetworkConnected(connected: boolean | null) {
+  lastKnownConnected = connected
+}
+
+export function initializeLastKnownNetworkConnected(connected: boolean) {
+  lastKnownConnected ??= connected
+}
+
+export function getLastKnownNetworkConnected(
+  navigatorRef: Navigator | undefined =
+    typeof window === 'undefined' ? undefined : window.navigator,
+) {
+  return lastKnownConnected ?? navigatorRef?.onLine ?? true
 }
 
 export function normalizeConnectionType(type?: string): ConnectionType {

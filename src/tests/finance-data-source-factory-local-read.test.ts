@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FinanceDataSource } from '@/data/contracts'
 import {
@@ -8,6 +8,7 @@ import {
 } from '@/data/data-source/finance-data-source-factory'
 import type { LocalSqliteDriver } from '@/data/local-sqlite/local-sqlite-types'
 import { featureFlags } from '@/lib/feature-flags'
+import { setLastKnownNetworkConnected } from '@/lib/network-status'
 
 function createRepositoryStub(overrides: Record<string, unknown> = {}) {
   return {
@@ -98,6 +99,10 @@ describe('local SQLite read mode feature flag', () => {
 })
 
 describe('finance data source runtime factory', () => {
+  afterEach(() => {
+    setLastKnownNetworkConnected(null)
+  })
+
   it('uses Supabase by default and does not initialize SQLite', async () => {
     const supabaseDataSource = createDataSourceStub('supabase')
     const initializeLocalSqliteDriver = vi.fn()
@@ -296,6 +301,59 @@ describe('finance data source runtime factory', () => {
         date: '2026-06-24',
         fromAccountId: 'account-1',
         type: 'expense',
+      },
+      userId: 'user-1',
+    })
+    expect(supabaseDataSource.transactions.create).not.toHaveBeenCalled()
+  })
+
+  it('routes transaction creates to the local writer when platform status is offline even if navigator is unreliable', async () => {
+    const driver = createDriverStub()
+    const supabaseDataSource = createDataSourceStub('supabase')
+    const localDataSource = createDataSourceStub('offline')
+    const createOfflineLocalTransaction = vi
+      .fn()
+      .mockResolvedValue({ id: 'local-transaction-1', type: 'income' })
+
+    setLastKnownNetworkConnected(false)
+
+    const dataSource = await createFinanceDataSourceForRuntime({
+      createLocalSqliteDataSource: vi.fn().mockReturnValue(localDataSource),
+      createOfflineLocalTransaction,
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      hydrateLocalSqlite: vi.fn().mockResolvedValue({
+        completedAt: '2026-06-24T10:00:00.000Z',
+        errors: [],
+        householdId: 'household-1',
+        startedAt: '2026-06-24T10:00:00.000Z',
+        tables: {},
+      }),
+      householdId: 'household-1',
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      supabaseDataSource,
+      userId: 'user-1',
+    })
+
+    await expect(
+      dataSource.transactions.create({
+        amount: 500,
+        date: '2026-06-24',
+        toAccountId: 'account-1',
+        type: 'income',
+      }),
+    ).resolves.toEqual({ id: 'local-transaction-1', type: 'income' })
+
+    expect(createOfflineLocalTransaction).toHaveBeenCalledWith({
+      driver,
+      householdId: 'household-1',
+      input: {
+        amount: 500,
+        date: '2026-06-24',
+        toAccountId: 'account-1',
+        type: 'income',
       },
       userId: 'user-1',
     })

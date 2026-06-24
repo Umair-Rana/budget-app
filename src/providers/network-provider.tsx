@@ -12,6 +12,8 @@ import { SyncState } from '@/data/sync/sync-state'
 import {
   createInitialNetworkSnapshot,
   getNetworkSnapshotAfterStatus,
+  initializeLastKnownNetworkConnected,
+  setLastKnownNetworkConnected,
   type NetworkSnapshot,
 } from '@/lib/network-status'
 import { createNetworkStatusAdapter } from '@/lib/network-status-adapter'
@@ -32,9 +34,11 @@ function getNavigator() {
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const { dataSource } = useFinanceDataSource()
-  const [snapshot, setSnapshot] = useState<NetworkSnapshot>(() =>
-    createInitialNetworkSnapshot(getNavigator()),
-  )
+  const [snapshot, setSnapshot] = useState<NetworkSnapshot>(() => {
+    const initialSnapshot = createInitialNetworkSnapshot(getNavigator())
+    initializeLastKnownNetworkConnected(initialSnapshot.isOnline)
+    return initialSnapshot
+  })
   const lastOnlineRef = useRef(snapshot.isOnline)
 
   const setSyncState = useCallback((syncState: SyncState) => {
@@ -84,6 +88,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
       const wasOnline = lastOnlineRef.current
       lastOnlineRef.current = status.connected
+      setLastKnownNetworkConnected(status.connected)
 
       if (!status.connected) {
         clearReconnectingTimer()
