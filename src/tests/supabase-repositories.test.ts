@@ -132,6 +132,7 @@ const transactionRow: TransactionRow = {
   category_id: 'category-1',
   from_account_id: null,
   to_account_id: 'account-1',
+  idempotency_key: null,
   payment_method: null,
   notes: 'Salary',
   tags: [],
@@ -801,6 +802,34 @@ describe('Supabase finance repositories', () => {
         p_amount: 1_000,
         p_category_id: 'category-1',
         p_to_account_id: 'account-1',
+        p_idempotency_key: null,
+      }),
+    )
+  })
+
+  it('passes an idempotency key to the create transaction RPC when provided', async () => {
+    const { client, rpc } = createMockSupabaseClient()
+    const repository = createSupabaseTransactionsRepository({
+      client,
+      householdId: 'household-1',
+      userId: 'user-1',
+    })
+
+    await repository.create({
+      type: 'expense',
+      amount: 500,
+      date: '2026-01-10',
+      categoryId: 'category-1',
+      fromAccountId: 'account-1',
+      idempotencyKey: 'transaction:local-transaction-1:create',
+    })
+
+    expect(rpc).toHaveBeenCalledWith(
+      'create_finance_transaction',
+      expect.objectContaining({
+        p_household_id: 'household-1',
+        p_type: 'expense',
+        p_idempotency_key: 'transaction:local-transaction-1:create',
       }),
     )
   })

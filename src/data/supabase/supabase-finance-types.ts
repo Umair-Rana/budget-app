@@ -90,6 +90,7 @@ export type TransactionRow = FinanceRecordRow & {
   category_id: Nullable<EntityId>
   from_account_id: Nullable<EntityId>
   to_account_id: Nullable<EntityId>
+  idempotency_key: Nullable<string>
   payment_method: Nullable<string>
   notes: Nullable<string>
   tags: string[]

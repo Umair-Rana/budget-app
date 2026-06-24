@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { FinanceDataSource } from '@/data/contracts'
 import {
+  createCachedLocalReadRuntime,
   createFinanceDataSourceForRuntime,
+  localReadModeOnlineRequiredMessage,
 } from '@/data/data-source/finance-data-source-factory'
 import type { LocalSqliteDriver } from '@/data/local-sqlite/local-sqlite-types'
 import { featureFlags } from '@/lib/feature-flags'
@@ -56,6 +58,37 @@ function createDriverStub(): LocalSqliteDriver & {
     run: vi.fn(),
     transaction: vi.fn(),
   } as unknown as LocalSqliteDriver & { close: ReturnType<typeof vi.fn> }
+}
+
+function createHydratedCacheDriverStub(): LocalSqliteDriver & {
+  close: ReturnType<typeof vi.fn>
+  query: ReturnType<typeof vi.fn>
+} {
+  const driver = createDriverStub()
+
+  driver.query = vi.fn().mockImplementation((sql: string) => {
+    if (sql.includes('from household_members')) {
+      return Promise.resolve([{ household_id: 'household-1' }])
+    }
+
+    if (sql.includes('from households')) {
+      return Promise.resolve([
+        {
+          currency: 'PKR',
+          id: 'household-1',
+          locale: 'en-PK',
+          name: 'Umair Family',
+        },
+      ])
+    }
+
+    return Promise.resolve([])
+  })
+
+  return driver as LocalSqliteDriver & {
+    close: ReturnType<typeof vi.fn>
+    query: ReturnType<typeof vi.fn>
+  }
 }
 
 describe('local SQLite read mode feature flag', () => {
@@ -217,6 +250,101 @@ describe('finance data source runtime factory', () => {
     expect(hydrateLocalSqlite).toHaveBeenCalledTimes(2)
   })
 
+  it('routes offline expense transaction creates to the local writer', async () => {
+    const driver = createDriverStub()
+    const supabaseDataSource = createDataSourceStub('supabase')
+    const localDataSource = createDataSourceStub('offline')
+    const createOfflineLocalTransaction = vi
+      .fn()
+      .mockResolvedValue({ id: 'local-transaction-1', type: 'expense' })
+
+    const dataSource = await createFinanceDataSourceForRuntime({
+      createLocalSqliteDataSource: vi.fn().mockReturnValue(localDataSource),
+      createOfflineLocalTransaction,
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      hydrateLocalSqlite: vi.fn().mockResolvedValue({
+        completedAt: '2026-06-24T10:00:00.000Z',
+        errors: [],
+        householdId: 'household-1',
+        startedAt: '2026-06-24T10:00:00.000Z',
+        tables: {},
+      }),
+      householdId: 'household-1',
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      isOnline: () => false,
+      supabaseDataSource,
+      userId: 'user-1',
+    })
+
+    await expect(
+      dataSource.transactions.create({
+        amount: 50,
+        date: '2026-06-24',
+        fromAccountId: 'account-1',
+        type: 'expense',
+      }),
+    ).resolves.toEqual({ id: 'local-transaction-1', type: 'expense' })
+
+    expect(createOfflineLocalTransaction).toHaveBeenCalledWith({
+      driver,
+      householdId: 'household-1',
+      input: {
+        amount: 50,
+        date: '2026-06-24',
+        fromAccountId: 'account-1',
+        type: 'expense',
+      },
+      userId: 'user-1',
+    })
+    expect(supabaseDataSource.transactions.create).not.toHaveBeenCalled()
+  })
+
+  it('blocks unsupported offline transaction types through the local writer path', async () => {
+    const driver = createDriverStub()
+    const supabaseDataSource = createDataSourceStub('supabase')
+    const localDataSource = createDataSourceStub('offline')
+    const createOfflineLocalTransaction = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Online connection is required for this transaction type.'),
+      )
+
+    const dataSource = await createFinanceDataSourceForRuntime({
+      createLocalSqliteDataSource: vi.fn().mockReturnValue(localDataSource),
+      createOfflineLocalTransaction,
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      hydrateLocalSqlite: vi.fn().mockResolvedValue({
+        completedAt: '2026-06-24T10:00:00.000Z',
+        errors: [],
+        householdId: 'household-1',
+        startedAt: '2026-06-24T10:00:00.000Z',
+        tables: {},
+      }),
+      householdId: 'household-1',
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      isOnline: () => false,
+      supabaseDataSource,
+      userId: 'user-1',
+    })
+
+    await expect(
+      dataSource.transactions.create({
+        amount: 50,
+        date: '2026-06-24',
+        fromAccountId: 'account-1',
+        toAccountId: 'account-2',
+        type: 'transfer',
+      }),
+    ).rejects.toThrow('Online connection is required for this transaction type.')
+    expect(supabaseDataSource.transactions.create).not.toHaveBeenCalled()
+  })
+
   it('keeps Supabase write results even if post-write rehydration fails', async () => {
     const driver = createDriverStub()
     const supabaseDataSource = createDataSourceStub('supabase')
@@ -258,5 +386,102 @@ describe('finance data source runtime factory', () => {
         type: 'cash',
       }),
     ).resolves.toEqual({ id: 'created-record' })
+  })
+
+  it('does not initialize SQLite for cached startup when local read flag is false', async () => {
+    const initializeLocalSqliteDriver = vi.fn()
+
+    const result = await createCachedLocalReadRuntime({
+      flags: {
+        localSqliteReadMode: false,
+        offlineMode: false,
+      },
+      initializeLocalSqliteDriver,
+      userId: 'user-1',
+    })
+
+    expect(result).toBeNull()
+    expect(initializeLocalSqliteDriver).not.toHaveBeenCalled()
+  })
+
+  it('starts from previously hydrated SQLite data without hydration when offline', async () => {
+    const driver = createHydratedCacheDriverStub()
+    const localDataSource = createDataSourceStub('offline')
+    const createLocalSqliteDataSource = vi.fn().mockReturnValue(localDataSource)
+
+    const result = await createCachedLocalReadRuntime({
+      createLocalSqliteDataSource,
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      userId: 'user-1',
+    })
+
+    expect(result?.household).toEqual({
+      currency: 'PKR',
+      id: 'household-1',
+      locale: 'en-PK',
+      name: 'Umair Family',
+    })
+    expect(createLocalSqliteDataSource).toHaveBeenCalledWith({
+      driver,
+      householdId: 'household-1',
+    })
+
+    await result?.dataSource.accounts.getAll()
+
+    expect(localDataSource.accounts.getAll).toHaveBeenCalled()
+    expect(driver.query).toHaveBeenCalledWith(
+      expect.stringContaining('from household_members'),
+      ['user-1'],
+    )
+  })
+
+  it('closes SQLite and returns null when no hydrated household exists', async () => {
+    const driver = createDriverStub()
+    driver.query = vi.fn().mockResolvedValue([])
+    const createLocalSqliteDataSource = vi.fn()
+
+    const result = await createCachedLocalReadRuntime({
+      createLocalSqliteDataSource,
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      userId: 'user-1',
+    })
+
+    expect(result).toBeNull()
+    expect(driver.close).toHaveBeenCalled()
+    expect(createLocalSqliteDataSource).not.toHaveBeenCalled()
+  })
+
+  it('blocks unsupported offline cached writes with an online-required error', async () => {
+    const driver = createHydratedCacheDriverStub()
+    const localDataSource = createDataSourceStub('offline')
+
+    const result = await createCachedLocalReadRuntime({
+      createLocalSqliteDataSource: vi.fn().mockReturnValue(localDataSource),
+      flags: {
+        localSqliteReadMode: true,
+        offlineMode: false,
+      },
+      initializeLocalSqliteDriver: vi.fn().mockResolvedValue(driver),
+      userId: 'user-1',
+    })
+
+    await expect(
+      result?.dataSource.accounts.create({
+        color: '#64748b',
+        icon: 'Wallet',
+        name: 'Cash',
+        openingBalance: 0,
+        type: 'cash',
+      }),
+    ).rejects.toThrow(localReadModeOnlineRequiredMessage)
+    expect(localDataSource.accounts.create).not.toHaveBeenCalled()
   })
 })

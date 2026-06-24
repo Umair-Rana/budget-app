@@ -16,10 +16,12 @@ import {
   type PendingHouseholdInvite,
 } from '@/data/supabase/household-sharing'
 import {
+  createCachedLocalReadRuntime,
   createFinanceDataSource,
   createFinanceDataSourceForRuntime,
 } from '@/data/data-source/finance-data-source-factory'
 import { getSupabaseClient } from '@/lib/supabase/supabase-client'
+import { featureFlags } from '@/lib/feature-flags'
 import { useAuth } from '@/hooks/use-auth'
 import { useFinanceRealtimeInvalidation } from '@/hooks/use-finance-realtime-invalidation'
 import { FinanceDataSourceContext } from '@/providers/finance-data-source-context'
@@ -68,6 +70,10 @@ function bootstrapErrorMessage(error: unknown) {
   }
 
   return 'Cloud household setup failed.'
+}
+
+function isBrowserOnline() {
+  return typeof window === 'undefined' ? true : window.navigator.onLine
 }
 
 export function FinanceDataProvider({ children }: { children: ReactNode }) {
@@ -208,6 +214,27 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       setCloudState({ status: 'loading', userId: cloudUser.id })
 
       try {
+        if (featureFlags.localSqliteReadMode && !isBrowserOnline()) {
+          const cachedRuntime = await createCachedLocalReadRuntime({
+            client: cloudClient,
+            userId: cloudUser.id,
+          })
+
+          if (cachedRuntime) {
+            setCloudState({
+              status: 'ready',
+              dataSource: cachedRuntime.dataSource,
+              household: cachedRuntime.household,
+              userId: cloudUser.id,
+            })
+            return
+          }
+
+          throw new Error(
+            'Offline local data is not available yet. Connect to the internet once to hydrate this household.',
+          )
+        }
+
         const gateResult = await prepareSupabaseHousehold({
           client: cloudClient,
           skipInviteCheck,

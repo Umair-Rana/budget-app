@@ -581,3 +581,190 @@ This is not offline-first behavior. It is a gated local read-path test harness.
 Future milestones must still implement local write operations, an operation
 queue, idempotent replay, conflict handling, and robust sync metadata before
 offline mode can be enabled.
+
+## Offline Read Validation
+
+Milestone 3A.7 stabilizes the developer-only local SQLite read path enough to
+validate the first offline-read flow:
+
+```text
+login online -> hydrate SQLite -> read from SQLite -> restart offline -> read cached SQLite data
+```
+
+### What works
+
+When `VITE_LOCAL_SQLITE_READ_MODE=true`, the app can:
+
+- bootstrap online through Supabase;
+- initialize local SQLite and run migrations;
+- hydrate the current household projection from Supabase;
+- read finance data from local SQLite repositories;
+- restart while offline and open the last hydrated household from SQLite cache,
+  as long as the Supabase session is still locally available.
+
+Offline startup skips Supabase hydration and looks up the current user's
+hydrated household from `household_members`, then loads the matching
+`households` row and local finance repositories.
+
+### What does not work yet
+
+This is still not full offline mode:
+
+- no offline create/update/delete;
+- no queued writes;
+- no operation replay;
+- no conflict handling;
+- no background sync;
+- no realtime-triggered local rehydration;
+- no guarantee that cached data is fresh after another device changes data
+  while this device is offline.
+
+### Write behavior while offline
+
+When the app starts from cached local SQLite data, mutation methods throw:
+
+```text
+Online connection is required for changes. Offline writes are not implemented yet.
+```
+
+This avoids implying that local changes will be saved or synced later.
+
+### How to enable local read mode
+
+Use `.env.local`:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=true
+```
+
+Restart Vite or rebuild the Android app after changing the flag.
+
+Return to normal Supabase-only mode with:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=false
+```
+
+or by removing the variable.
+
+### Web QA steps
+
+```text
+[ ] Set VITE_LOCAL_SQLITE_READ_MODE=true
+[ ] Run the app locally
+[ ] Login online
+[ ] Confirm hydration completes in dev diagnostics
+[ ] Confirm Overview data loads
+[ ] Confirm Transactions data loads
+[ ] Turn internet off
+[ ] Refresh/reopen app
+[ ] Confirm latest hydrated data still displays
+[ ] Confirm write actions do not pretend to save offline
+```
+
+### Android QA steps
+
+```text
+[ ] Set VITE_LOCAL_SQLITE_READ_MODE=true
+[ ] Build and sync Android
+[ ] Install/run APK
+[ ] Login online
+[ ] Confirm hydration completes in dev diagnostics
+[ ] Confirm Overview data loads
+[ ] Confirm Transactions data loads
+[ ] Turn Wi-Fi/mobile data off
+[ ] Close app fully
+[ ] Reopen app
+[ ] Confirm latest hydrated data still displays
+[ ] Confirm offline banner appears
+[ ] Confirm write actions do not create local-only data
+```
+
+### Known limitations
+
+Offline read startup depends on an existing local Supabase auth session and a
+previous successful hydration. If either is missing, the app cannot infer which
+household to open and will ask the user to reconnect once.
+
+## Offline Transaction Write and Sync Loop
+
+Milestone 3B.1 added the first offline write path. Milestone 3B.2 hardens that
+path with Supabase-side idempotency. The scope remains intentionally limited to
+creating standalone income and expense transactions while
+`VITE_LOCAL_SQLITE_READ_MODE=true`.
+
+### Supported offline writes
+
+Supported while offline:
+
+- create expense transaction;
+- create income transaction.
+
+For an offline expense, local SQLite inserts the transaction and subtracts the
+amount from the selected source account. For an offline income, local SQLite
+inserts the transaction and adds the amount to the selected destination account.
+The transaction insert, account balance update, and operation queue insert run
+inside one SQLite transaction.
+
+### Still online-only
+
+These remain online-only:
+
+- transfers;
+- adjustments;
+- bills;
+- goals;
+- loans;
+- budgets;
+- recurring transactions;
+- recurring bills;
+- household sharing/settings operations.
+
+Unsupported offline writes throw a clear online-required error and do not create
+local-only data.
+
+### Operation queue behavior
+
+Offline income/expense creates insert an `operation_queue` row with:
+
+- `operation_type`: `CREATE_EXPENSE_TRANSACTION` or
+  `CREATE_INCOME_TRANSACTION`;
+- `entity_type`: `transaction`;
+- `entity_id`: local transaction id;
+- `status`: `pending`;
+- `payload_json`: transaction create input and local transaction id;
+- `idempotency_key`: `transaction:<localTransactionId>:create`;
+- retry metadata such as `attempt_count`, `last_error`, and `next_retry_at`.
+
+Successful replay marks the operation `synced`. Failed replay marks it `failed`,
+increments `attempt_count`, stores `last_error`, and schedules a retry.
+
+### Replay and reconnect behavior
+
+When the network reconnects or the app resumes online, the active local SQLite
+read data source can replay pending operations. Replay calls the existing
+Supabase transaction repository, so it still goes through current Supabase
+business rules/RPCs. After at least one successful replay, the local SQLite
+projection is rehydrated from Supabase.
+
+The replay service uses an in-memory per-household lock to avoid duplicate
+concurrent sync attempts.
+
+### Server-side idempotency
+
+Offline transaction replay sends the local queue idempotency key to
+`create_finance_transaction` as `p_idempotency_key`.
+
+Supabase stores this on `transactions.idempotency_key` and enforces a partial
+unique index on `(household_id, idempotency_key)` where the key is not null.
+Normal online transactions can still use `null`, so existing online create flows
+are not forced through idempotency.
+
+If a replay succeeds in Supabase but the client loses the response before the
+operation is marked `synced`, retrying the same queued operation returns the
+existing transaction for that household/key. The RPC does not insert another row
+and does not apply account balance impact again.
+
+This makes retry of offline Income/Expense create operations duplicate-safe. The
+same pattern should be reused before adding offline writes for bills, goals,
+loans, transfers, recurring generation, or settings operations.

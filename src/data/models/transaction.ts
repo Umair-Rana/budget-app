@@ -40,6 +40,7 @@ export type CreateTransactionInput = {
   linkedBillId?: EntityId
   linkedGoalId?: EntityId
   linkedLoanId?: EntityId
+  idempotencyKey?: string
 }
 
 export type UpdateTransactionInput = Partial<CreateTransactionInput>

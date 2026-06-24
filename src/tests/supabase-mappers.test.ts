@@ -85,6 +85,7 @@ describe('Supabase finance mappers', () => {
       category_id: 'category-1',
       from_account_id: 'account-1',
       to_account_id: 'account-2',
+      idempotency_key: null,
       payment_method: null,
       notes: 'Internet bill',
       tags: [],

@@ -338,6 +338,121 @@ Limitations:
   rehydrate SQLite.
 - IndexedDB fallback remains in place.
 
+### Offline read QA
+
+After enabling:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=true
+```
+
+Web QA:
+
+```text
+[ ] Start Vite
+[ ] Login while online
+[ ] Confirm Overview and Transactions load
+[ ] Turn internet off
+[ ] Refresh/reopen the app
+[ ] Confirm the last hydrated data still displays
+[ ] Try a write action and confirm it does not create local-only data
+```
+
+Android QA:
+
+```text
+[ ] Set VITE_LOCAL_SQLITE_READ_MODE=true
+[ ] Run npm.cmd run build
+[ ] Run npm.cmd exec cap sync android
+[ ] Build/install the debug APK
+[ ] Login while online
+[ ] Confirm Overview and Transactions load
+[ ] Turn Wi-Fi/mobile data off
+[ ] Close and reopen the app
+[ ] Confirm cached finance data still displays
+[ ] Confirm the offline banner appears
+[ ] Try a write action and confirm it requires an online connection
+```
+
+If no cached household exists yet, reconnect once and open the app online so
+SQLite can hydrate from Supabase.
+
+## Offline Transaction Write QA
+
+Milestones 3B.1 and 3B.2 support offline writes only for standalone income and
+expense transactions while local SQLite read mode is enabled. Replay is
+idempotent server-side for these create operations.
+
+Enable:
+
+```env
+VITE_LOCAL_SQLITE_READ_MODE=true
+```
+
+Web QA:
+
+```text
+[ ] Login online
+[ ] Confirm local SQLite hydration completed
+[ ] Turn internet off
+[ ] Add an Expense
+[ ] Confirm the expense appears immediately
+[ ] Confirm the source account balance decreases
+[ ] Add an Income
+[ ] Confirm the income appears immediately
+[ ] Confirm the destination account balance increases
+[ ] Refresh/reopen while offline
+[ ] Confirm the local transactions are still visible
+[ ] Turn internet on
+[ ] Confirm pending operations replay
+[ ] Refresh from cloud
+[ ] Confirm transactions remain after cloud hydration
+[ ] Replay/resume again
+[ ] Confirm no duplicate transaction is created
+[ ] Confirm the account balance is not applied twice
+```
+
+Android QA:
+
+```text
+[ ] Set VITE_LOCAL_SQLITE_READ_MODE=true
+[ ] Run npm.cmd run build
+[ ] Run npm.cmd exec cap sync android
+[ ] Build/install the debug APK
+[ ] Login online
+[ ] Confirm local SQLite hydration completed
+[ ] Turn Wi-Fi/mobile data off
+[ ] Add an Expense
+[ ] Confirm the expense appears immediately
+[ ] Confirm the source account balance decreases
+[ ] Close and reopen offline
+[ ] Confirm the expense is still visible
+[ ] Turn Wi-Fi/mobile data on
+[ ] Confirm pending operation syncs
+[ ] Confirm Web shows the synced transaction
+[ ] Resume/retry sync again
+[ ] Confirm Web still shows only one synced transaction
+```
+
+Still online-only:
+
+```text
+Transfers, adjustments, bills, goals, loans, budgets, recurring records,
+household sharing, and settings.
+```
+
+Idempotency behavior:
+
+```text
+Local key format: transaction:<localTransactionId>:create
+Supabase column: transactions.idempotency_key
+Uniqueness: household_id + idempotency_key where idempotency_key is not null
+```
+
+If the first Supabase replay commits but the client loses the response, retrying
+the same queued operation should return the existing transaction, mark the
+operation synced, and avoid applying account balance impact a second time.
+
 ## Supabase Setup
 
 Supabase configuration is required to run the app. Without config, the app shows

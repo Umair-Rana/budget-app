@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -885,6 +885,7 @@ export type Database = {
           from_account_id: string | null
           household_id: string
           id: string
+          idempotency_key: string | null
           linked_bill_id: string | null
           linked_goal_id: string | null
           linked_loan_id: string | null
@@ -914,6 +915,7 @@ export type Database = {
           from_account_id?: string | null
           household_id: string
           id?: string
+          idempotency_key?: string | null
           linked_bill_id?: string | null
           linked_goal_id?: string | null
           linked_loan_id?: string | null
@@ -943,6 +945,7 @@ export type Database = {
           from_account_id?: string | null
           household_id?: string
           id?: string
+          idempotency_key?: string | null
           linked_bill_id?: string | null
           linked_goal_id?: string | null
           linked_loan_id?: string | null
@@ -1335,6 +1338,7 @@ export type Database = {
           from_account_id: string | null
           household_id: string
           id: string
+          idempotency_key: string | null
           linked_bill_id: string | null
           linked_goal_id: string | null
           linked_loan_id: string | null
@@ -1522,6 +1526,7 @@ export type Database = {
           p_date: string
           p_from_account_id?: string
           p_household_id: string
+          p_idempotency_key?: string
           p_linked_bill_id?: string
           p_linked_goal_id?: string
           p_linked_loan_id?: string
@@ -1546,6 +1551,7 @@ export type Database = {
           from_account_id: string | null
           household_id: string
           id: string
+          idempotency_key: string | null
           linked_bill_id: string | null
           linked_goal_id: string | null
           linked_loan_id: string | null
@@ -1717,6 +1723,7 @@ export type Database = {
           from_account_id: string | null
           household_id: string
           id: string
+          idempotency_key: string | null
           linked_bill_id: string | null
           linked_goal_id: string | null
           linked_loan_id: string | null
@@ -2137,6 +2144,7 @@ export type Database = {
           from_account_id: string | null
           household_id: string
           id: string
+          idempotency_key: string | null
           linked_bill_id: string | null
           linked_goal_id: string | null
           linked_loan_id: string | null

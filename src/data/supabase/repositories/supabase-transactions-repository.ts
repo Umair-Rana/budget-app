@@ -82,6 +82,7 @@ function sanitizeTransactionInput(
     linkedBillId: input.linkedBillId,
     linkedGoalId: input.linkedGoalId,
     linkedLoanId: input.linkedLoanId,
+    idempotencyKey: input.idempotencyKey,
   }
 
   if (input.type === 'income') {
@@ -400,6 +401,7 @@ export function createSupabaseTransactionsRepository(
           ...transactionRpcArgs(context, transaction),
           p_created_at: transaction.createdAt,
           p_updated_at: transaction.updatedAt,
+          p_idempotency_key: input.idempotencyKey ?? null,
         },
       )
     },

@@ -15,7 +15,9 @@ import {
   type NetworkSnapshot,
 } from '@/lib/network-status'
 import { createNetworkStatusAdapter } from '@/lib/network-status-adapter'
+import { triggerLocalSqliteSyncIfAvailable } from '@/lib/local-sqlite-sync-trigger'
 import { invalidateFinanceData } from '@/lib/query-invalidation'
+import { useFinanceDataSource } from '@/hooks/use-finance-data-source'
 import {
   NetworkStatusContext,
   type NetworkStatusContextValue,
@@ -29,6 +31,7 @@ function getNavigator() {
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
+  const { dataSource } = useFinanceDataSource()
   const [snapshot, setSnapshot] = useState<NetworkSnapshot>(() =>
     createInitialNetworkSnapshot(getNavigator()),
   )
@@ -65,6 +68,13 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       }, reconnectingDurationMs)
     }
 
+    async function syncPendingLocalOperationsIfAvailable() {
+      await triggerLocalSqliteSyncIfAvailable({
+        dataSource,
+        onSynced: () => invalidateFinanceData(queryClient),
+      })
+    }
+
     function applyStatus(
       status: Parameters<typeof getNetworkSnapshotAfterStatus>[1],
     ) {
@@ -86,13 +96,20 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
       if (status.connected && !wasOnline) {
         finishReconnectingSoon()
+        void syncPendingLocalOperationsIfAvailable()
         void invalidateFinanceData(queryClient)
       }
     }
 
     async function refreshStatus() {
       try {
-        applyStatus(await adapter.getCurrentStatus())
+        const status = await adapter.getCurrentStatus()
+        const wasOnlineBeforeRefresh = lastOnlineRef.current
+        applyStatus(status)
+
+        if (status.connected && wasOnlineBeforeRefresh) {
+          void syncPendingLocalOperationsIfAvailable()
+        }
       } catch {
         // Keep the last known status if a platform status check fails.
       }
@@ -129,7 +146,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         cleanup()
       }
     }
-  }, [queryClient])
+  }, [dataSource, queryClient])
 
   const value = useMemo<NetworkStatusContextValue>(
     () => ({

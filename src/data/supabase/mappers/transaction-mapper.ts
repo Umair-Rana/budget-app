@@ -59,6 +59,7 @@ export function toSupabaseTransactionInsert(
     category_id: nullable(transaction.categoryId),
     from_account_id: nullable(transaction.fromAccountId),
     to_account_id: nullable(transaction.toAccountId),
+    idempotency_key: null,
     payment_method: nullable(transaction.paymentMethod),
     notes: nullable(transaction.notes),
     tags: transaction.tags ?? [],
